@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+backtrader = "*"
+intrinio-sdk = "*"
+fastapi = "*"
+uvicorn = "*"
+ta = "*"
+matplotlib = "==3.2.2"
+cloudscraper = "*"
+loguru = "*"
+python-box = "*"
+wsimple = {editable = true, path = "src/sitepckg/Wsimple"}
+requests = "*"
+pandas = "*"
+apprise = "*"
+yfinance = "*"
+plotly = "*"
+pyti = "*"
+pandas-ta = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
