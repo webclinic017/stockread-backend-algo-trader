@@ -1,16 +1,18 @@
 from typing import Optional, List
 
-from src.autotrade import BrokerBase
-from src.autotrade.broker.position import PositionWST
-from src.autotrade import Strategy
+import pandas
+
+from src.autotrade.trade.order import Order
+from src.autotrade.trade.position import PositionWST
+from src.autotrade.strategy.strategy import Strategy
 
 
 class Trade:
     def __init__(self, is_continuous: bool=False):
         # trading tools setup
         self._strategy: Optional[Strategy] = None
-        self._broker: Optional[BrokerBase] = None
-        self._data: Optional[List[dict]] = None
+        self._broker = None
+        self._data: Optional[pandas.DataFrame] = None
 
         # ticker symbol setup
         self._trading_ticker_symbol: Optional[str] = None
@@ -18,14 +20,32 @@ class Trade:
         self._primary_exchange: Optional[str] = None
 
         # cost vs revenue
+        self._cash_budget = None
         self._buy_amount = None
         self._sell_amount = None
         self._commission = None
-        self._size = False
 
         # trade flag
         self._is_continuous = is_continuous
         self._is_closed = False
+
+        # position setup
+        self._size = None
+        self._position: Optional[str] = None
+
+        # order setup
+        self.active_selL_order: Optional[Order] = None
+        self.active_buy_order: Optional[Order] = None
+        self.submitted_stop_loss_orders: Optional[List[Order]] = None
+        self.completed_buy_orders: Optional[Order] = None
+
+        if self._is_continuous:
+            self.completed_selL_orders: Optional[List[Order]] = None
+            self.completed_buy_orders: Optional[List[Order]] = None
+
+        else:
+            self.completed_selL_order: Optional[Order] = None
+            self.completed_buy_order: Optional[Order] = None
 
 
     def set_trading_ticker_symbol(self, trading_ticker_symbol, primary_exchange="TSX",
@@ -36,7 +56,7 @@ class Trade:
 
     @property
     def trading_security(self):
-        return self._trading_security
+        return self._trading_ticker_symbol
 
     @property
     def trading_position(self):

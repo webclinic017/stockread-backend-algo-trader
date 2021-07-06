@@ -13,7 +13,7 @@ matplotlib = "==3.2.2"
 cloudscraper = "*"
 loguru = "*"
 python-box = "*"
-wsimple = {editable = true, path = "src/sitepckg/Wsimple"}
+wsimple = {editable = true, path = "./src/sitepckg/Wsimple"}
 requests = "*"
 pandas = "*"
 apprise = "*"

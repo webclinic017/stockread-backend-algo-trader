@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from src.autotrade import Instrument, InstrumentWST
+from src.autotrade.broker.instrument import Instrument, InstrumentWST
 
 
 class Position(ABC):
     def __init__(self):
-        self._security: Optional[Instrument] = None
+        self._instrument: Optional[Instrument] = None
         self._size: Optional[int] = None
         self._sellable_size: Optional[int] = None
         self._book_value: Optional[float] = None
@@ -17,7 +17,7 @@ class Position(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def security(self):
+    def instrument(self):
         raise NotImplementedError()
 
     @abstractmethod
@@ -43,16 +43,16 @@ class PositionWST(Position):
         super().__init__()
 
     def set_position(self, position_info: dict):
-        self._security = InstrumentWST()
-        self._security.set_security(security_info=position_info)
+        self._instrument = InstrumentWST()
+        self._instrument.set_instrument(instrument_info=position_info)
         self._size = position_info['quantity']
         self._sellable_size = position_info['sellable_quantity']
         self._book_value = position_info['book_value']['amount']
         self._average_price = round(self._book_value / self._sellable_size,2)
 
     @property
-    def security(self):
-        return self._security
+    def instrument(self):
+        return self._instrument
 
     @property
     def size(self):
@@ -60,12 +60,12 @@ class PositionWST(Position):
 
     @property
     def sellable_size(self):
-        raise self._sellable_size
+        return self._sellable_size
 
     @property
     def book_value(self):
-        raise self._book_value
+        return self._book_value
 
     @property
     def average_price(self):
-        raise self._average_price
+        return self._average_price

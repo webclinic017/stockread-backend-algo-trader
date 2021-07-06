@@ -1,0 +1,16 @@
+LICENSE
+pyproject.toml
+setup.py
+src/wsimple/__init__.py
+src/wsimple.egg-info/PKG-INFO
+src/wsimple.egg-info/SOURCES.txt
+src/wsimple.egg-info/dependency_links.txt
+src/wsimple.egg-info/not-zip-safe
+src/wsimple.egg-info/requires.txt
+src/wsimple.egg-info/top_level.txt
+src/wsimple/api/__init__.py
+src/wsimple/api/api.py
+src/wsimple/api/endpoints.py
+src/wsimple/api/errors.py
+src/wsimple/api/requestor.py
+src/wsimple/api/tokens.py

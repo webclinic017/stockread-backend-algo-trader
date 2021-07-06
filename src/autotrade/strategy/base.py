@@ -1,23 +1,30 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Union
 
-from src.autotrade import BarFrame
-from src.autotrade import BrokerBase, BrokerBaseInterface, BrokerLiveInterface
+from src.autotrade.barfeed.barframe import BarFrame
+from src.autotrade.broker.broker import BrokerBaseInterface, BrokerLiveInterface
+from src.autotrade.trade.trade import Trade
 
 
 class Strategy(ABC):
 
     def __init__(self):
+        # set from Trade class
+        self._trade: Optional[Trade] = None
+        self._broker: Union[BrokerBaseInterface, BrokerLiveInterface, None] = None
+
         self._bar_frame: Optional[BarFrame] = None
         self._bars: Optional[BarFrame] = None
-        self._broker: Union[BrokerBaseInterface, BrokerLiveInterface, None] = None
         self._is_prep_done: bool = False
+
+    def set_trade(self, trade: Trade):
+        self._trade = trade
+
+    def set_broker(self, broker: Union[BrokerBaseInterface, BrokerLiveInterface]):
+        self._trade = broker
 
     def set_bars(self, data):
         self._bar_frame = BarFrame(data)
-
-    def set_broker(self, broker: BrokerBase):
-        self._broker = broker
 
     def __iter__(self):
         return self

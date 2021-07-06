@@ -1,13 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from wsimple import Wsimple
 
 from src.autotrade import BrokerAccount, AccountWST
 from src.autotrade import Order, OrderWST, OrderAction
 from src.autotrade import InstrumentWST
 from src.autotrade.errors import TickerSymbolNotFound
-# from autotrade.trade import Trade
 
 
 class BrokerBaseInterface(ABC):
@@ -116,14 +114,6 @@ class LiveBrokerBase(BrokerBase):
         # trading account setup
         self._trading_account_id: Optional[str] = None
         self._trading_account: Optional[BrokerAccount] = None
-
-        # order setup
-        self.submitted_selL_order: Optional[Order] = None
-        self.executed_selL_order: Optional[Trade] = None
-        self.submitted_buy_order: Optional[Order] = None
-        self.executed_buy_order: Optional[Order] = None
-        self.submitted_stop_loss_orders: Optional[List[Order]] = None
-        self.executed_stop_order: Optional[Order] = None
 
     def set_live_trader(self):
         self.IS_LIVE = True
