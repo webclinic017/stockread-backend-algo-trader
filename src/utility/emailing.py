@@ -6,7 +6,7 @@ import ssl
 from email.mime.text import MIMEText
 from typing import List
 
-from src.secrets import SMTP_SSL_HOST, IMAP_SSL_HOST, SMTP_SSL_PORT, IMAP_SSL_PORT, EMAIL_ADDRESS, \
+from src.secrets.credentials import SMTP_SSL_HOST, IMAP_SSL_HOST, SMTP_SSL_PORT, IMAP_SSL_PORT, EMAIL_ADDRESS, \
     EMAIL_PASSWORD
 
 

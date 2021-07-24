@@ -2,7 +2,6 @@ import json
 import os
 import re
 from datetime import datetime
-from threading import Lock
 from time import sleep
 from typing import Optional, List
 
@@ -10,34 +9,9 @@ import requests
 from wsimple import InvalidAccessTokenError, InvalidRefreshTokenError, Wsimple
 
 from src.config.config import BASE_DIR
-from src.secrets import WSIMPLE_EMAIL, WSIMPLE_PASSWORD, WSIMPLE_TOKENS
+from src.secrets.credentials import WSIMPLE_EMAIL, WSIMPLE_PASSWORD, WSIMPLE_TOKENS
 from src.utility.emailing import MailBox
-
-
-class SingletonMeta(type):
-    """
-    This is a thread-safe implementation of Singleton.
-    """
-
-    _instances = {}
-
-    _lock: Lock = Lock()
-    """
-    We now have a lock object that will be used to synchronize threads during
-    first access to the Singleton.
-    """
-
-    def __call__(cls, *args, **kwargs):
-        """
-        Possible changes to the value of the `__init__` argument do not affect
-        the returned instance.
-        """
-
-        with cls._lock:
-            if cls not in cls._instances:
-                instance = super().__call__(*args, **kwargs)
-                cls._instances[cls] = instance
-        return cls._instances[cls]
+from src.utility.singleton import SingletonMeta
 
 
 class ConnectionWST(metaclass=SingletonMeta):
@@ -47,7 +21,7 @@ class ConnectionWST(metaclass=SingletonMeta):
                                                 {"refresh_token": WSIMPLE_TOKENS[
                                                     'refresh_token']}] if WSIMPLE_TOKENS else None
 
-        self.ws_access: Optional[Wsimple] = None
+        self.wst_auth: Optional[Wsimple] = None
         self.is_connected: bool = False
 
     def connect(self):
@@ -62,21 +36,21 @@ class ConnectionWST(metaclass=SingletonMeta):
 
         else:
             try:
-                self.ws_access = Wsimple(
+                self.wst_auth = Wsimple(
                     WSIMPLE_EMAIL,
                     WSIMPLE_PASSWORD,
                     oauth_mode=True,
                     tokens=self.ws_tokens,
                     internally_manage_tokens=True
                 )
-                self.ws_access.refresh_token(self.ws_tokens)
+                self.wst_auth.refresh_token(self.ws_tokens)
                 self.is_connected = True
 
             except (InvalidAccessTokenError, InvalidRefreshTokenError) as err:
                 print("Invalid Token: {}".format(err))
 
     def _login(self, username=WSIMPLE_EMAIL, password=WSIMPLE_PASSWORD):
-        self.ws_access = Wsimple(username, password)
+        self.wst_auth = Wsimple(username, password)
 
     def _verify_access(self):
         sleep(10)
@@ -87,7 +61,7 @@ class ConnectionWST(metaclass=SingletonMeta):
         pattern = re.compile(r'Wealthsimple:<br><br>\r\n\r\n(.*?)\r\n\r\nThis code will')
         otp_key = pattern.findall(data['payload'])[0]
         print("OTP collected from email: {}".format(otp_key))
-        ws_tokens = self.ws_access.inject_otp(int(otp_key))
+        ws_tokens = self.wst_auth.inject_otp(int(otp_key))
         with open(os.path.join(BASE_DIR, 'secrets/wstokens.json'), 'w') as f:
             json.dump(ws_tokens, f)
 
@@ -126,5 +100,6 @@ class ConnectionWST(metaclass=SingletonMeta):
 if __name__ == '__main__':
     conn_wst = ConnectionWST()
     conn_wst.connect()
-    ws_access = conn_wst.ws_access
+    ws_access = conn_wst.wst_auth
+
 

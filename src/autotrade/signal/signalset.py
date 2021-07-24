@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from src.autotrade import Signal
+from src.autotrade.signal.signal import Signal
 
 
 class SignalSetAction(Enum):

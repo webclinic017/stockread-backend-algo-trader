@@ -1,41 +1,15 @@
 import json
 import os
-
-import requests
-from threading import Lock
 from datetime import datetime
 
+import requests
+
 from src.config.config import BASE_DIR
-from src.secrets import QUESTRADE_TOKENS, QUESTRADE_TOKEN_URL
+from src.secrets.credentials import QUESTRADE_TOKENS, QUESTRADE_TOKEN_URL
+from src.utility.singleton import SingletonMeta
 
 
-class SingletonMeta(type):
-    """
-    This is a thread-safe implementation of Singleton.
-    """
-
-    _instances = {}
-
-    _lock: Lock = Lock()
-    """
-    We now have a lock object that will be used to synchronize threads during
-    first access to the Singleton.
-    """
-
-    def __call__(cls, *args, **kwargs):
-        """
-        Possible changes to the value of the `__init__` argument do not affect
-        the returned instance.
-        """
-
-        with cls._lock:
-            if cls not in cls._instances:
-                instance = super().__call__(*args, **kwargs)
-                cls._instances[cls] = instance
-        return cls._instances[cls]
-
-
-class QuestradeBearerToken(metaclass=SingletonMeta):
+class QuesTradeBearerToken(metaclass=SingletonMeta):
 
     def __init__(self):
         self.expiry_timestamp = QUESTRADE_TOKENS['expiry_timestamp']
@@ -52,7 +26,6 @@ class QuestradeBearerToken(metaclass=SingletonMeta):
             }
 
             response = requests.post(QUESTRADE_TOKEN_URL, params=params)
-
             json_response = response.json()
             self.expiry_timestamp = int(datetime.now().timestamp().__round__()) + int(json_response["expires_in"])
             json_response['expiry_timestamp'] = int(datetime.now().timestamp().__round__()) + int(
@@ -84,5 +57,5 @@ class QuestradeBearerToken(metaclass=SingletonMeta):
 
 
 if __name__ == '__main__':
-    qbt = QuestradeBearerToken()
+    qbt = QuesTradeBearerToken()
     print(qbt.access_token)

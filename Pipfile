@@ -21,6 +21,7 @@ yfinance = "*"
 plotly = "*"
 pyti = "*"
 pandas-ta = "*"
+webull = "*"
 
 [dev-packages]
 

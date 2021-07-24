@@ -1,4 +1,4 @@
-from src.autotrade.broker.connection.ws_order import Order, OrderType
+from src.labwork.connection.ws_order import Order, OrderType
 from src.autotrade import WealthSimpleTickerClient
 
 

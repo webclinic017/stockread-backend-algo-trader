@@ -2,11 +2,9 @@ from collections import deque
 from typing import Optional
 
 from ta.momentum import RSIIndicator
-from ta.trend import
 
 from src.autotrade.barfeed.bar import Bar
 from src.autotrade.barfeed.barframe import BarFrame
-from src.datafeed.yahoofinance.data_api import YahooFinanceApi
 
 from src.utility.logger import Logger
 

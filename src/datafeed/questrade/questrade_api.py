@@ -1,34 +1,42 @@
-from typing import Optional
-
 import requests
 
-from feed.questrade.qtokens import QuestradeBearerToken
+from src.datafeed.questrade.qtokens import QuesTradeBearerToken
 
 
-class QuestradeApi:
-    def __init__(self, questrade_token: Optional[QuestradeBearerToken], ticker_symbol: str):
-        self.questrade_token = questrade_token
+class QuesTradeApi:
+    def __init__(self, ticker_symbol: str, qt_token=QuesTradeBearerToken()):
+        self.qt_token = qt_token
         self.ticker_symbol = ticker_symbol
         self.headers = {
-            'Authorization': 'Bearer {}'.format(self.questrade_token.access_token)
+            'Authorization': 'Bearer {}'.format(self.qt_token.access_token)
         }
         self.symbol_id = self.get_symbol_id()
 
     def get_symbol_id(self):
-        TICKER_SEARCH_SUFFIX = 'v1/symbols/search?prefix'
+        ticker_search_suffix = 'v1/symbols/search?prefix'
+        url = f"{self.qt_token.api_server}{ticker_search_suffix}={self.ticker_symbol}"
 
-        url = f"{self.questrade_token.api_server}{TICKER_SEARCH_SUFFIX}={self.ticker_symbol}"
+        request_attempts = 3
+        data = None
+        for _ in range(request_attempts):
+            response = requests.request("GET", url, headers=self.headers)
+            data = response.json()
+            if data['symbols']:
+                break
 
-        response = requests.request("GET", url, headers=self.headers)
-        data = response.json()
-        for each in data['symbols']:
-            if each['symbol'] == self.ticker_symbol:
-                return each['symbolId']
+        try:
+            symbols_found = data['symbols']
+            for each in symbols_found:
+                if each['symbol'] == self.ticker_symbol:
+                    return each['symbolId']
+
+        except KeyError as err:
+            print(err)
 
     def get_quotes(self):
-        MARKET_QUOTES_SUFFIX = 'v1/markets/quotes/'
+        market_quotes_suffix = 'v1/markets/quotes/'
 
-        url = f"{self.questrade_token.api_server}{MARKET_QUOTES_SUFFIX}{self.symbol_id}"
+        url = f"{self.qt_token.api_server}{market_quotes_suffix}{self.symbol_id}"
 
         response = requests.request("GET", url, headers=self.headers)
         data = response.json()
@@ -37,7 +45,4 @@ class QuestradeApi:
 
 
 if __name__ == '__main__':
-    qbt = QuestradeBearerToken()
-    qapi = QuestradeApi(qbt, 'SHOP.TO')
-    print(qapi.get_quotes())
-    # print(qapi.get_quotes())
+    pass

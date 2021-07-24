@@ -1,27 +1,30 @@
-from abc import ABC, abstractmethod
-from typing import Optional, Union
+from abc import abstractmethod, ABC
+
+
+from ta.momentum import RSIIndicator
 
 from src.autotrade.barfeed.barframe import BarFrame
-from src.autotrade.broker.broker import BrokerBaseInterface, BrokerLiveInterface
-from src.autotrade.trade.trade import Trade
-
-
-class Strategy(ABC):
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.autotrade.tradebot import TradeBot
+    
+    
+class BaseStrategy(ABC):
 
     def __init__(self):
         # set from Trade class
-        self._trade: Optional[Trade] = None
-        self._broker: Union[BrokerBaseInterface, BrokerLiveInterface, None] = None
+        self._trade_bot = None
+        self._broker = None
 
-        self._bar_frame: Optional[BarFrame] = None
-        self._bars: Optional[BarFrame] = None
+        self._bar_frame = None
+        self._bars = None
         self._is_prep_done: bool = False
 
-    def set_trade(self, trade: Trade):
-        self._trade = trade
+    def bind_to_trade(self, trade_bot: 'TradeBot'):
+        self._trade_bot = trade_bot
 
-    def set_broker(self, broker: Union[BrokerBaseInterface, BrokerLiveInterface]):
-        self._trade = broker
+    def set_broker(self, broker):
+        self._broker = broker
 
     def set_bars(self, data):
         self._bar_frame = BarFrame(data)
@@ -70,26 +73,19 @@ class Strategy(ABC):
     def stop_limit_sell(self, ticker_symbol, stop_price, limit_price, quantity):
         self._broker.stop_limit_sell(ticker_symbol, stop_price, limit_price, quantity)
 
-    # def start(self):
-    #     pass
-    #
-    # def stop(self):
-    #     pass
-    #
-    # def _notify_order(self, order):
-    #     pass
-    #
-    # def notify_trade(self, trade):
-    #     pass
-    #
-    # def notify_cashvalue(self, cash, value):
-    #     pass
-    #
-    # def notify_fund(self, cash, value, fundvalue, shares):
-    #     pass
-    #
-    # def close(self):
-    #     pass
-    #
-    # def cancel(self):
-    #     pass
+
+class RSIStrategy(BaseStrategy):
+
+    def prepare(self):
+        self._bar_frame.add_fields(rsi=RSIIndicator(self._bar_frame.close, window=14, fillna=True).rsi())
+        self._bar_frame.add_fields(rsi_uphit_70=Indicator(self._bar_frame.frame['rsi']).is_up_hit(70))
+
+    def next(self):
+    #     print('bar 0:', self.bars[0])
+    #     print('bar -1:', self.bars[-1])
+        rsi = self.bars[0].rsi
+        price = self.bars[0].close
+        if rsi and self.bars[0].rsi_uphit_70 == 1:
+            # pass
+            print(f'RSI: {self.bars[0].rsi} and close price: {price}')
+

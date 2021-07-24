@@ -15,11 +15,11 @@ class NegativeCashBalance(Exception):
         super(NegativeCashBalance, self).__init__("A negative cash balance cannot be set")
 
 
-class InvalidBrokerTradeSetting(Exception):
+class InvalidBrokerSetting(Exception):
     """
     Error thrown when a trading mode conflicts with broker class (i.e.: live trading >< back test broker class,
     or backtest >< live trading broker class
     """
 
     def __init__(self):
-        super(InvalidBrokerTradeSetting, self).__init__("Invalid Broker class selected")
+        super(InvalidBrokerSetting, self).__init__("Invalid Broker class selected")
