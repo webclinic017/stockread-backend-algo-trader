@@ -1,4 +1,4 @@
-from src.autotrade.broker.order import Order
+from src.autotrade.artifacts.order import Order
 
 
 class StopLoss:

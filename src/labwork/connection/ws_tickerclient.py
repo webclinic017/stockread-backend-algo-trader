@@ -1,7 +1,7 @@
 from typing import Optional, List
 
 
-from src.autotrade.broker.wst_conn import ConnectionWST
+from src.autotrade.broker_conn.wsimple_conn import ConnectionWST
 from src.labwork.connection.ws_order import Order, OrderType
 
 class WealthSimpleTickerClient:

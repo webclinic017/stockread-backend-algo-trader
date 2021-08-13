@@ -17,7 +17,7 @@ class Bar:
         self.__dict__.update(bar_dict)
 
     def __repr__(self):
-        return 'Bar({timestamp},{datetime},{open},{high},{low},{close},{volume},{interval},{ticker_symbol})'.format(
+        return 'Bar({timestamp}, {datetime}, {open}, {high}, {low}, {close}, {volume}, {interval}, {ticker_symbol})'.format(
             timestamp=self.timestamp,
             datetime=self.datetime,
             open=self.open,
@@ -29,12 +29,19 @@ class Bar:
             ticker_symbol=self.ticker_symbol)
 
     def __str__(self):
-        return 'Bar({datetime},C: {close},V: {volume},{frequency},{ticker_symbol})'.format(
-            datetime=self.datetime,
-            close=self.close,
-            volume=self.volume,
-            frequency=self.interval,
-            ticker_symbol=self.ticker_symbol)
+        tojoin = list()
+        tojoin.append('ClassType: {}'.format(type(self).__name__))
+        tojoin.append('TickerSymbol: {}'.format(self.ticker_symbol))
+        tojoin.append('Timestamp: {}'.format(self.timestamp))
+        tojoin.append('Datetime: {}'.format(self.datetime))
+        tojoin.append('OpenPrice: {}'.format(self.open))
+        tojoin.append('HighPrice: {}'.format(self.high))
+        tojoin.append('LowPrice: {}'.format(self.low))
+        tojoin.append('ClosePrice: {}'.format(self.close))
+        tojoin.append('Volume: {}'.format(self.volume))
+        tojoin.append('Interval: {}'.format(self.interval))
+
+        return ', '.join(tojoin)
 
     def values(self):
         return {

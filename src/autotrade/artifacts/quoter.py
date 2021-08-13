@@ -1,8 +1,15 @@
+# Copyright (C) 2021-2030 StockRead Inc.
+# Author: Thanh Tung Nguyen
+# Contact: tungstudies@gmail.com
+
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from src.datafeed.questrade.questrade_api import QuesTradeApi
+from src.datafeed.questrade.questrade_api import QuesTradeAPI
 
+
+# DIVIDER: --------------------------------------
+# INFO: IQuoter Interface (Quoter Interface)
 
 class IQuoter(ABC):
 
@@ -41,22 +48,25 @@ class IQuoter(ABC):
 
     @property
     @abstractmethod
-    def price_gap(self):
+    def ask_bid_spread(self):
         raise NotImplementedError()
 
+
+# DIVIDER: --------------------------------------
+# INFO: QuestradeQuoter Concrete Class
 
 class QuestradeQuoter(IQuoter):
 
     def __init__(self):
-        self.ticker_symbol_alias = None
-        self.questrade_api: Optional[QuesTradeApi] = None
+        self.ticker_symbol = None
+        self.questrade_api: Optional[QuesTradeAPI] = None
 
     def set_quoter(self, ticker_symbol_alias: str):
-        self.ticker_symbol_alias = ticker_symbol_alias
-        self.questrade_api = QuesTradeApi(self.ticker_symbol_alias)
+        self.ticker_symbol = ticker_symbol_alias
+        self.questrade_api = QuesTradeAPI()
 
     def _get_quote(self):
-        return self.questrade_api.get_quotes()
+        return self.questrade_api.get_quotes(self.ticker_symbol)
 
     @property
     def bid_price(self):
@@ -78,15 +88,18 @@ class QuestradeQuoter(IQuoter):
     def mid_price(self):
         quote = self._get_quote()
         mid_price = (quote['bidPrice'] * quote['bidSize'] + quote['askPrice'] * quote['askSize']) / (
-                    quote['bidSize'] + quote['askSize'])
+                quote['bidSize'] + quote['askSize'])
         return round(mid_price, 2)
 
     @property
-    def price_gap(self):
+    def ask_bid_spread(self):
         quote = self._get_quote()
         price_gap = quote['askPrice'] - quote['bidPrice']
         return price_gap
 
+
+# DIVIDER: --------------------------------------
+# INFO: Usage Examples
 
 if __name__ == '__main__':
     qq = QuestradeQuoter()

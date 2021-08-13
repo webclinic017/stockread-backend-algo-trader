@@ -3,8 +3,8 @@ from typing import Optional
 
 from ta.momentum import RSIIndicator
 
-from src.autotrade.barfeed.bar import Bar
-from src.autotrade.barfeed.barframe import BarFrame
+from src.autotrade.bars.bar import Bar
+from src.autotrade.bars.barfeed import BarFeed
 
 from src.utility.logger import Logger
 
@@ -74,7 +74,7 @@ def test():
     yf_api.set_interval("1d")
     data = yf_api.get_candles()
     print(data)
-    bars = BarFrame(data)
+    bars = BarFeed(data)
     chop
     bars.add_fields(rsi=RSIIndicator(bars.close).rsi())
     count = 0

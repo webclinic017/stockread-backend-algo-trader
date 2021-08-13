@@ -16,12 +16,17 @@ python-box = "*"
 wsimple = {editable = true, path = "./src/sitepckg/Wsimple"}
 requests = "*"
 pandas = "*"
+numpy = "*"
 apprise = "*"
 yfinance = "*"
 plotly = "*"
 pyti = "*"
 pandas-ta = "*"
 webull = "*"
+alpaca-trade-api = "*"
+apscheduler = "*"
+yahooquery = "*"
+pandas-market-calendars = "*"
 
 [dev-packages]
 

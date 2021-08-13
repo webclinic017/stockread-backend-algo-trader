@@ -1,10 +1,11 @@
-from src.autotrade.tradebot import TradeBot
+from src.autotrade.trade import Trade
 
 
 class AutoTrader:
     def __init__(self):
         self._cash: float = 0.0
-        self._trades = dict()
+        self._active_trades = dict()
+        self._settled_trade = dict()
 
     @property
     def cash(self):
@@ -14,7 +15,7 @@ class AutoTrader:
     @property
     def remaining_cash(self):
         cash_used = 0
-        for trade in self._trades.values():
+        for trade in self._active_trades.values():
             cash_used += trade.sizer.amount
         return self._cash - cash_used
 
@@ -34,13 +35,17 @@ class AutoTrader:
         """Add/Remove cash to the system (use a negative value to remove)"""
         self._cash += cash
 
-    def add_trade(self, trade: TradeBot):
+    def add_trade(self, trade: Trade):
 
         """set a ``Sizer`` class which is the default sizer for any
         strategy added to each trade
         """
         trade.bind_to_trader(self)
-        self._trades[trade.codename] = trade
+        self._active_trades[trade.codename] = trade
+
+    def remove_trade(self):
+        pass
+
 
     def run(self):
         """

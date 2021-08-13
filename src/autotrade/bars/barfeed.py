@@ -1,14 +1,14 @@
-from typing import List
+from typing import Optional
 
 import pandas as pd
 
-from src.autotrade.barfeed.bar import Bar
+from src.autotrade.bars.bar import Bar
 from collections import deque
 
 
-class BarFrame:
+class BarFeed:
 
-    def __init__(self, dataframe: List[pd.DataFrame]) -> None:
+    def __init__(self, dataframe: pd.DataFrame) -> None:
         """Initalizes the Stock Data Frame Object.
         Arguments:
         ----
@@ -17,8 +17,11 @@ class BarFrame:
         """
 
         self._frame = dataframe
-        self._frame: pd.DataFrame = self._create_frame()
         self._index = 0
+        # replace NaN values with None
+        self._replace_nan()
+
+        # self._lastbar = Bar(bar_dict=list(self._frame.to_dict('index').values())[-1])
 
     def __iter__(self):
         return self
@@ -31,18 +34,6 @@ class BarFrame:
         pd.DataFrame -- A pandas data frame with the price data.
         """
         return self._frame
-
-    def _create_frame(self) -> pd.DataFrame:
-        """Creates a new data frame with the data passed through.
-        Returns:
-        ----
-        {pd.DataFrame} -- A pandas dataframe.
-        """
-
-        # Make a data frame.
-        price_df = pd.DataFrame(data=self._data)
-
-        return price_df
 
     def _replace_nan(self):
         self._frame = self._frame.where(pd.notnull(self._frame), None)
@@ -74,6 +65,26 @@ class BarFrame:
 
         self._index += 1
         return de
+
+    @property
+    def latest_bar(self):
+        return Bar(bar_dict=list(self._frame.to_dict('index').values())[-1])
+
+    @property
+    def last_bar(self):
+        latest_bar = Bar(bar_dict=list(self._frame.to_dict('index').values())[-1])
+        second_latest_bar = Bar(bar_dict=list(self._frame.to_dict('index').values())[-2])
+        third_latest_bar = Bar(bar_dict=list(self._frame.to_dict('index').values())[-3])
+        standard_time_gap = second_latest_bar.timestamp - third_latest_bar.timestamp
+        last_time_gap = latest_bar.timestamp - latest_bar.timestamp
+        if last_time_gap < standard_time_gap:
+            return second_latest_bar
+        else:
+            return latest_bar
+
+    @property
+    def bar_count(self):
+        return len(self._frame)
 
     @property
     def close(self):

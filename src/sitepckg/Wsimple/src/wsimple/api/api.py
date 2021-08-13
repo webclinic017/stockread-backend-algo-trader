@@ -218,6 +218,12 @@ class Wsimple:
                     {"refresh_token": self.refresh_token},
                 ]
 
+                token_dict = {'access_token': r.headers["X-Access-Token"],
+                              'refresh_token': r.headers["X-Refresh-Token"],
+                              'expiry_timestamp': int(r.headers["X-Access-Token-Expires"])}
+
+                return token_dict
+
     @classmethod
     def oauth_login(cls, token_dict, verbose=False):
         """
