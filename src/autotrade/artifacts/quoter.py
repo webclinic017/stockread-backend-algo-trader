@@ -14,7 +14,7 @@ from src.datafeed.questrade.questrade_api import QuesTradeAPI
 class IQuoter(ABC):
 
     @abstractmethod
-    def set_quoter(self, ticker_symbol_alias: str):
+    def set_ticker_symbol(self, ticker_symbol_alias: str):
         raise NotImplementedError()
 
     @abstractmethod
@@ -61,7 +61,7 @@ class QuestradeQuoter(IQuoter):
         self.ticker_symbol = None
         self.questrade_api: Optional[QuesTradeAPI] = None
 
-    def set_quoter(self, ticker_symbol_alias: str):
+    def set_ticker_symbol(self, ticker_symbol_alias: str):
         self.ticker_symbol = ticker_symbol_alias
         self.questrade_api = QuesTradeAPI()
 
@@ -103,5 +103,5 @@ class QuestradeQuoter(IQuoter):
 
 if __name__ == '__main__':
     qq = QuestradeQuoter()
-    qq.set_quoter('CTS.TO')
+    qq.set_ticker_symbol('CTS.TO')
     print(qq.mid_price)

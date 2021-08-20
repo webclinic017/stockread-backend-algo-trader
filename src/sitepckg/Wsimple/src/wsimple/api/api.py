@@ -210,6 +210,12 @@ class Wsimple:
                     r.headers["X-Refresh-Token"],
                     datetime.fromtimestamp(int(r.headers["X-Access-Token-Expires"])),
                 )
+
+                token_dict = {'access_token': r.headers["X-Access-Token"],
+                              'refresh_token': r.headers["X-Refresh-Token"],
+                              'expiry_timestamp': int(r.headers["X-Access-Token-Expires"])}
+
+                return token_dict
             else:
                 self.access_token = r.headers["X-Access-Token"]
                 self.refresh_token = r.headers["X-Refresh-Token"]
@@ -242,11 +248,12 @@ class Wsimple:
 
     def _manage_tokens(f):
         def wrap_manage_tokens(self, *args, **kwargs):
-            self.logger.info(f"Manage Tokens: {self.box} {args} {kwargs}")
+            self.logger.info(f"Tokens: {self.box} {args} {kwargs}")
             if self.internally_manage_tokens:
                 diff = self.box.access_expires - datetime.now()
+                self.logger.debug(f"Reset in -> {diff}")
                 if diff < timedelta(minutes=15):
-                    self.box = self.refresh_token(tokens=kwargs["tokens"])
+                    self.box = self.refresh_token(tokens=self.box.tokens)
                 kwargs["tokens"] = self.box.tokens
                 return f(self, *args, **kwargs)
             else:

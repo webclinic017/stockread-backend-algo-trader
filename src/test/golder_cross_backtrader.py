@@ -29,14 +29,14 @@ class Strat2_BGTMA_SLSMA(bt.Strategy):
 
     def notify_order(self, order):
         # 1. If order is submitted/accepted, do nothing
-        if order.status in [order.Submitted, order.Accepted]:
+        if order._status in [order.Submitted, order.Accepted]:
             return
         # 2. If order is buy/sell executed, report price executed
-        if order.status in [order.Completed]:
-            if order.isbuy():
+        if order._status in [order.Completed]:
+            if order._isbuy():
                 self.log('BUY EXECUTED, Price: {0:8.2f}, Size: {1:8.2f} Cost: {2:8.2f}, Comm: {3:8.2f}'.format(
                     order.executed.price,
-                    order.executed.size,
+                    order.executed._size,
                     order.executed.value,
                     order.executed.comm))
 
@@ -45,13 +45,13 @@ class Strat2_BGTMA_SLSMA(bt.Strategy):
             else:
                 self.log('SELL EXECUTED, {0:8.2f}, Size: {1:8.2f} Cost: {2:8.2f}, Comm{3:8.2f}'.format(
                     order.executed.price,
-                    order.executed.size,
+                    order.executed._size,
                     order.executed.value,
                     order.executed.comm))
 
             self.bar_executed = len(self)  # when was trade executed
         # 3. If order is canceled/margin/rejected, report order canceled
-        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+        elif order._status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('Order Canceled/Margin/Rejected')
 
         self.order = None
@@ -138,7 +138,7 @@ class GoldenCross(bt.Strategy):
 
 
     def next(self):
-        if self.position.size == 0:
+        if self.position._size == 0:
             print("Cross-over value: {}".format(self.crossover))
             if self.crossover > 0:
                 amount_to_invest = (self.p.order_pct * self.broker.cash)
@@ -147,7 +147,7 @@ class GoldenCross(bt.Strategy):
                 print("Buy {} shares of {} at {}".format(self.size, self.p.ticker, self.data.close[0]))
                 self.buy(size=self.size)
 
-        if self.position.size > 0:
+        if self.position._size > 0:
             if self.crossover < 0:
                 print("Sell {} shares of {} at {}".format(self.size, self.p.ticker, self.data.close[0]))
                 self.close()

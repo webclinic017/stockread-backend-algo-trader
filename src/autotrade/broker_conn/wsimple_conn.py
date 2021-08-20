@@ -20,7 +20,6 @@ from src.utility.singleton import SingletonMeta
 # INFO: WSimpleOTPVerifier Concrete Class
 
 class WSimpleOTPVerifier:
-
     wsimple = 'support@wealthsimple.com'
     subject = 'Wealthsimple verification code'
 
@@ -70,6 +69,7 @@ class WSimpleConnection(metaclass=SingletonMeta):
         self._access_token = None
         self._refresh_token = None
         self._wsimple_token_dict = self._get_token_info()
+        print(self._wsimple_token_dict)
         # IMPORTANT: Setup expiry_timestamp, access_token, refresh_token by running the method right below
         self._parse_and_save_tokens()
 
@@ -112,11 +112,8 @@ class WSimpleConnection(metaclass=SingletonMeta):
             return self._login_and_verify()
 
         else:
-            if datetime.datetime.now().timestamp().__round__() > (self._expiry_timestamp - self._tk_refresh_buffer):
-                print('WealthSimple access is about to expire. Refreshing the access.')
-                return self._refresh_token()
-
-            elif not self._wst_auth:
+            if not self._wst_auth:
+                print('Reloading WealthSimple access')
                 self._wst_auth = Wsimple(
                     self._username,
                     self._password,
@@ -124,9 +121,18 @@ class WSimpleConnection(metaclass=SingletonMeta):
                     tokens=self._wsimple_token(),
                     internally_manage_tokens=True
                 )
-                print('Reloading WealthSimple access')
-                return self._wst_auth
+                try:
+                    self._wsimple_token_dict = self._wst_auth.refresh_token(self._wsimple_token())
+                    if datetime.datetime.now().timestamp().__round__() > (
+                            self._expiry_timestamp - self._tk_refresh_buffer):
+                        print(self._wsimple_token_dict)
+                        self._parse_and_save_tokens()
+                        print('WealthSimple access was about to expire. The access has been refreshed and saved')
+                    return self._wst_auth
 
+                except (InvalidAccessTokenError, InvalidRefreshTokenError) as err:
+                    print("Invalid Token: {}".format(err))
+                    return self._login_and_verify()
             else:
                 return self._wst_auth
 
@@ -148,7 +154,7 @@ class WSimpleConnection(metaclass=SingletonMeta):
 
     def _wsimple_token(self):
         if self._access_token and self._refresh_token:
-            return [{'Authorization': self._access_token}, {"refresh_token": self._refresh_token}]
+            return [{'Authorization': self._access_token}, {'refresh_token': self._refresh_token}]
 
     def _login_and_verify(self):
         self._wst_auth = Wsimple(self._username, self._password)
@@ -157,37 +163,18 @@ class WSimpleConnection(metaclass=SingletonMeta):
 
         return self._wst_auth
 
-    def _refresh_tokens(self):
-
-        self._wst_auth = Wsimple(
-            self._username,
-            self._password,
-            oauth_mode=True,
-            tokens=self._wsimple_token(),
-            internally_manage_tokens=True
-        )
-
-        try:
-            self._wsimple_token_dict = self._wst_auth.refresh_token(self._wsimple_token())
-            self._parse_and_save_tokens()
-            return self._wst_auth
-
-        except (InvalidAccessTokenError, InvalidRefreshTokenError) as err:
-            print("Invalid Token: {}".format(err))
-            return self._login_and_verify()
-
 
 # DIVIDER: --------------------------------------
 # INFO: Usage Examples
 
 if __name__ == '__main__':
 
-    is_to_run_test = True
+    is_to_test_run = True
 
-    if is_to_run_test:
+    if is_to_test_run:
         wsimple_conn = WSimpleConnection()
         ws_access = wsimple_conn.auth
-        print(ws_access.exchanges)
+        print(ws_access.find_securities(ticker='CGX', fuzzy=True))
 
     else:
         pass

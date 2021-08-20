@@ -1,10 +1,17 @@
-from typing import Optional
+# Copyright (C) 2021-2030 StockRead Inc.
+# Author: Thanh Tung Nguyen
+# Contact: tungstudies@gmail.com
+
+from collections import deque
+from typing import Deque
 
 import pandas as pd
 
 from src.autotrade.bars.bar import Bar
-from collections import deque
 
+
+# DIVIDER: --------------------------------------
+# INFO: BarFeed Concrete Class
 
 class BarFeed:
 
@@ -15,32 +22,19 @@ class BarFeed:
         data {List[Dict]} -- The data to convert to a frame. Normally, this is
             returned from the historical prices endpoint.
         """
-
         self._frame = dataframe
         self._index = 0
         # replace NaN values with None
         self._replace_nan()
 
-        # self._lastbar = Bar(bar_dict=list(self._frame.to_dict('index').values())[-1])
+    # DIVIDER: Required Class Construction Methods --------------------------------------------------------
 
     def __iter__(self):
         return self
 
-    @property
-    def frame(self) -> pd.DataFrame:
-        """The frame object.
-        Returns:
-        ----
-        pd.DataFrame -- A pandas data frame with the price data.
-        """
-        return self._frame
+    def __next__(self) -> Deque[Bar]:
 
-    def _replace_nan(self):
-        self._frame = self._frame.where(pd.notnull(self._frame), None)
-
-    def __next__(self):
-
-        de = deque([])
+        de: Deque[Bar] = deque([])
         bar_count = 0
 
         # replace NaN values with None
@@ -65,6 +59,15 @@ class BarFeed:
 
         self._index += 1
         return de
+
+    @property
+    def frame(self) -> pd.DataFrame:
+        """The frame object.
+        Returns:
+        ----
+        pd.DataFrame -- A pandas data frame with the price data.
+        """
+        return self._frame
 
     @property
     def latest_bar(self):
@@ -95,6 +98,14 @@ class BarFeed:
         return self._frame['open']
 
     @property
+    def high(self):
+        return self._frame['high']
+
+    @property
+    def low(self):
+        return self._frame['low']
+
+    @property
     def volume(self):
         return self._frame['volume']
 
@@ -103,6 +114,13 @@ class BarFeed:
         for key, value in kwargs.items():
             self._frame[key] = value
 
+    # DIVIDER: Class Private Methods to Process Data Internally -----------------------------------
+
+    def _replace_nan(self):
+        self._frame = self._frame.where(pd.notnull(self._frame), None)
+
+# DIVIDER: --------------------------------------
+# INFO: Usage Examples
 
 if __name__ == '__main__':
     pass

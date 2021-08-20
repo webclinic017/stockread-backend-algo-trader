@@ -21,17 +21,16 @@ class Commission:
         if self._is_fixed:
             self._is_fixed = fixed_comm
             if percent:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_fixed_amount',
+                raise InputParameterConflict(provided_input='by_fixed_amount',
                                              input_types=('by_fixed_amount', 'by_percentage'),
                                              expected_corresponding_input='fixed_comm',
                                              unexpected_corresponding_input='percent',
                                              corresponding_input_types=('fixed_comm', 'percent'))
 
-
         else:
             self._percent = percent
             if fixed_comm:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_percentage',
+                raise InputParameterConflict(provided_input='by_percentage',
                                              input_types=('by_fixed_amount', 'by_percentage'),
                                              expected_corresponding_input='percent',
                                              unexpected_corresponding_input='fixed_comm',
@@ -58,7 +57,7 @@ class Commission:
     @property
     def percent(self):
         if self._is_fixed:
-            raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_fixed_amount',
+            raise InputParameterConflict(provided_input='by_fixed_amount',
                                          input_types=('by_fixed_amount', 'by_percentage'),
                                          expected_corresponding_input='fixed_comm',
                                          unexpected_corresponding_input='percent',
@@ -71,7 +70,7 @@ class Commission:
         if self._is_fixed:
             return self._fixed_comm
         else:
-            raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_percentage',
+            raise InputParameterConflict(provided_input='by_percentage',
                                          input_types=('by_fixed_amount', 'by_percentage'),
                                          expected_corresponding_input='percent',
                                          unexpected_corresponding_input='fixed_comm',
@@ -80,7 +79,7 @@ class Commission:
     # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
     def percent_comm(self, transaction_value: float):
         if self._is_fixed:
-            raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_fixed_amount',
+            raise InputParameterConflict(provided_input='by_fixed_amount',
                                          input_types=('by_fixed_amount', 'by_percentage'),
                                          expected_corresponding_input='fixed_comm',
                                          unexpected_corresponding_input='percent',
@@ -106,5 +105,5 @@ class Commission:
 
 if __name__ == '__main__':
     comm = Commission(is_fixed=False, fixed_comm=0, percent=0.005, ceiling=10, floor=5)
-    comm_amount = comm.estimate_commission(transaction_value=1000000)
-    print(comm_amount)
+    commission_amount = comm.estimate_commission(transaction_value=1000000)
+    print(commission_amount)

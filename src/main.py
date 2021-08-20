@@ -3,7 +3,7 @@ from src.autotrade.broker.wsimple_broker import WSimpleBroker
 from src.autotrade.broker_conn.wsimple_conn import ConnectionWST
 from src.autotrade.artifacts.quoter import QuestradeQuoter
 from src.autotrade.artifacts.sizer import Sizer
-from src.autotrade.strategy.strat_rsi import RSIStrategy
+from src.autotrade.strategy.rsi_strategy import RSIBollingerCloudStrategy
 from src.autotrade.trade import Trade
 from src.datafeed.yahoofinance.yf_single import PublicApiYF
 
@@ -42,7 +42,7 @@ def algo():
     trade_bot.set_broker(broker=brok_wst)
 
     # add a strategy
-    rsi_strategy = RSIStrategy()
+    rsi_strategy = RSIBollingerCloudStrategy()
     trade_bot.set_strategy(rsi_strategy)
     trade_bot.execute()
 

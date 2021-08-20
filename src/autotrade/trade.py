@@ -1,37 +1,79 @@
+# Copyright (C) 2021-2030 StockRead Inc.
+# Author: Thanh Tung Nguyen
+# Contact: tungstudies@gmail.com
+
 import datetime
 from enum import Enum
-from typing import Optional, List
-# Typing without cyclic imports
-from typing import TYPE_CHECKING
+from typing import Optional, Union
 
-from src.autotrade.artifacts.gain_loss import GainLossTracker
+from src.autotrade.artifacts.gltracker import GainLossTracker
 from src.autotrade.artifacts.market_hours import MarketHour
-from src.autotrade.bars.barfeed import BarFeed
-from src.autotrade.broker.base_broker import IBroker
-from src.autotrade.artifacts.order import Order
-from src.autotrade.artifacts.position import Position
-from src.autotrade.errors import InvalidBrokerSetting
 from src.autotrade.artifacts.quoter import IQuoter
 from src.autotrade.artifacts.sizer import Sizer
-from src.autotrade.strategy.strat_base import BaseStrategy
-from src.datafeed.yahoofinance.yf_single import ICandleFeed, PYahooFinance
+from src.autotrade.artifacts.stopper import StopOrderPricer
+from src.autotrade.bars.barfeed import BarFeed
+from src.autotrade.broker.base_broker import IBroker, BaseLiveBroker, BaseBroker
+from src.autotrade.errors import InvalidBrokerSetting
+from src.autotrade.strategy.base_strategy import BaseStrategy
+from src.datafeed.yahoofinance.yf_single import ICandleRetriever, PYahooFinance
+from src.errors import ValueNotPresentException, MissingRequiredTradingElement
 
-if TYPE_CHECKING:
-    from src.autotrade.autotrader import AutoTrader
+
+# DIVIDER: --------------------------------------
+# INFO: Exchange Enum
+
+class Exchange(Enum):
+    """Exchanges available and supported by 'pandas_market_calendars' library"""
+    TSX = ('TSX', 'CAD', 'CA')
+    NYSE = ('NYSE', 'USD', 'US')
+
+    @classmethod
+    def currencies(cls):
+        return [member.value[1] for member in cls]
+
+    @classmethod
+    def exchanges(cls):
+        return [member.value[0] for member in cls]
+
+    @classmethod
+    def get_currency(cls, currency: str):
+        for member in cls:
+            if member.value[1] == currency.upper():
+                return member
+
+    @classmethod
+    def get_exchange(cls, exchange: str):
+        for member in cls:
+            if member.value[0] == exchange.upper():
+                return member
 
 
-# TODO: process commission gainloss in tradebot and put in to resp order
+# DIVIDER: --------------------------------------
+# INFO: IntervalOption Enum
 
 class IntervalOption(Enum):
-    I_1MIN = ('1m', 60)
-    I_2MINS = ('2m', 120)
-    I_5MINS = ('5m', 300)
-    I_15MINS = ('15m', 900)
-    I_30MINS = ('30m', 1800)
-    I_1HOUR = ('1h', 3600)
-    I_4HOURS = ('4h', 14400)
-    I_1DAY = ('1d', 86400)
+    _1M = ('1m', 60)
+    _2M = ('2m', 120)
+    _5M = ('5m', 300)
+    _15M = ('15m', 900)
+    _30M = ('30m', 1800)
+    _1H = ('1h', 3600)
+    _4H = ('4h', 14400)
+    _1D = ('1d', 86400)
 
+    @classmethod
+    def interval_options(cls):
+        return [member.value[0] for member in cls]
+
+    @classmethod
+    def get_interval(cls, interval_option: str):
+        for member in cls:
+            if member.value[0] == interval_option.lower():
+                return member
+
+
+# DIVIDER: --------------------------------------
+# INFO: TradeStatus Enum
 
 class TradeStatus(Enum):
     """ TradeStatus: specifies the current status of the trade (ACTIVATED, CANCELLED, STOPPED, RESUMED, CLOSED)."""
@@ -42,6 +84,9 @@ class TradeStatus(Enum):
     RESUMED = 'Resumed'
     CLOSED = 'Closed'
 
+
+# DIVIDER: --------------------------------------
+# INFO: TradingDurationType Enum
 
 class TradingDurationType(Enum):
     """ TradeDurationType: Trading durations allow you to control how long your trade remains active.
@@ -60,169 +105,173 @@ class TradingDurationType(Enum):
     GTD = 'GTD'
     GTC = 'GTC'
 
+    @classmethod
+    def duration_options(cls):
+        return [member.value for member in cls]
+
+
+# DIVIDER: --------------------------------------
+# INFO: Trade Concrete Class
 
 class Trade:
     """Keeps track of the life of a trade: broker, strategy, datafeed, orders, commission (and value?)"""
 
     def __init__(self, codename: str, is_live_trade: bool, trading_symbol: str, ticker_alias: str, currency: str,
-                 data_interval: IntervalOption, interval_number: int, exchange: str,
-                 country=None, reps: int = 1, duration_type=TradingDurationType.DAY):
+                 interval_option: str, candle_count: int, exchange: str,
+                 country=None, reps: int = 1, duration_type: str = 'DAY'):
 
-        """
-        :param codename: a unique name (unique identifier) for each trade created. Ex. "shopify_pilot_trading".
-        :type codename: str
+        # INFO: Constructor Input Parameter Check
+        if interval_option.lower() not in IntervalOption.interval_options():
+            raise ValueNotPresentException(provided_value=interval_option.lower(),
+                                           value_list=IntervalOption.interval_options())
 
-        :param is_live_trade: specify the trading modes if it's a LIVE trade or not. LIVE: is a real trade and executed
-        real-time data and real brokers. A test trade (NOT LIVE) and will be executed with historical data and a test
-        broker.
-        :type is_live_trade: bool
+        if currency.upper() not in Exchange.currencies():
+            raise ValueNotPresentException(provided_value=currency.upper(),
+                                           value_list=Exchange.currencies())
 
-        :param trading_symbol: the trading instrument resembled by the ticker symbol.
-        Where ***trading_symbol*** is the ticker of the company or ETF. Ex. AMZN, APPL, GOOGL, SPY.
-        :type trading_symbol: str
+        if exchange.upper() not in Exchange.exchanges():
+            raise ValueNotPresentException(provided_value=exchange.upper(),
+                                           value_list=Exchange.exchanges())
 
-        :param ticker_alias: for some brokers, it is required to provide exchange suffix to differentiate same
-        ticker symbols of one exchange from the others. Ex. SHOP.TO vs SHOP.
-        :type ticker_alias: str
-
-        :param exchange: country/exchange in which the trading ticker symbol is listed
-        :type exchange: str
-
-        :param reps: the number of times to perform the trade. Default is 1 (one round of buy & sell)
-        :type reps: int
-
-        :param duration_type: specify the durations which controls how long your trade remains active. Default is
-        TradingDurationType.DAY
-        :type duration_type: TradingDurationType
-        """
+        if duration_type.upper() not in TradingDurationType.duration_options():
+            raise ValueNotPresentException(provided_value=duration_type.upper(),
+                                           value_list=TradingDurationType.duration_options())
 
         self._codename = codename
+        self._status = TradeStatus.ACTIVATED
         self._is_live_trade = is_live_trade
         self._trading_symbol = trading_symbol
         self._ticker_alias = ticker_alias
         self._currency = currency
+        self._reps = reps
 
-        # data interval setup
-        self._data_interval = data_interval
-        self._interval_number = interval_number
-        self._last_refresh_timestamp = None
-
-        # setup exchange and market hour
+        # INFO: Exchange and Market Hour Setup
         self._exchange = exchange
         self._market_hour: MarketHour = MarketHour(exchange)
         self._country = country
 
-        # trade reps setup
-        self._reps = reps
-        self._filled_buy_count = 0
-        self._filled_sell_count = 0
-
-        self._duration_type = duration_type
-        self._status: Optional[TradeStatus] = None
-
-        # define compositions:
-        self._trader: Optional['AutoTrader'] = None
+        # INFO: Key Component Setup
+        self._strategy = None
         self._sizer: Optional[Sizer] = None
-        self._strategy: Optional[BaseStrategy] = None
-        self._position = Position(self._trading_symbol)
-        self._broker: Optional[IBroker] = None
-        self._gls_tracker: Optional[GainLossTracker] = None  # gain-loss tracker is used to track trading gain or loss
+        self._broker: Optional[Union[BaseBroker, BaseLiveBroker, IBroker]] = None
+        self._quoter: Optional[IQuoter] = None  # quoter is used to get trading price
+        self._stp_pricer: Optional[StopOrderPricer] = None
+        self._gls_tracker = GainLossTracker()  # gain-loss tracker is used to track trading gain or loss
 
-        self._quoter: Optional[IBroker] = None  # quoter is used to get trading price
-
-        self._datafeed: Optional[ICandleFeed] = None
+        # INFO: Candle/Bar Data and Interval Setup
+        self._interval_option = IntervalOption.get_interval(interval_option=interval_option)
+        self._candle_count = candle_count
+        self._candle_retriever: Optional[ICandleRetriever] = None
         self._barfeed: Optional[BarFeed] = None
+        self._last_refresh_timestamp = None
         self.set_data()
 
-        # order setup #
-        self.active_order: Optional[Order] = None
-        self.filled_orders: List[Order] = list()
-        self.discarded_orders: List[Order] = list()
+    # DIVIDER: Publicly Accessible Method Properties ----------------------------------------------
 
-    # TRADE ATTRIBUTES
-    @property
-    def codename(self):
-        return self._codename
-
+    # INFO: Class Key Attribute/Component Setters
     @property
     def trading_symbol(self):
         return self._trading_symbol
-
-    @property
-    def is_live_trade(self):
-        return self._is_live_trade
 
     @property
     def currency(self):
         return self._currency
 
     @property
-    def position(self):
-        return self._position
-
-    @property
-    def trader(self):
-        if self._trader:
-            return self._trader
-        else:
-            raise Exception('Trader instance has not been bound to the trade')
-
-    @property
     def sizer(self):
         if self._sizer:
             return self._sizer
         else:
-            raise Exception('A sizer has not been provided (set) to the trade')
+            raise MissingRequiredTradingElement(element_type='sizer')
+
+    @property
+    def stp_pricer(self):
+        if self._stp_pricer:
+            return self._stp_pricer
+        else:
+            raise MissingRequiredTradingElement(element_type='stop_order_pricer')
 
     @property
     def quoter(self):
         if self._quoter:
             return self._quoter
         else:
-            raise Exception('A quoter has not been provided (set) to the trade')
+            raise MissingRequiredTradingElement(element_type='quoter')
 
     @property
     def strategy(self):
         if self._strategy:
             return self._strategy
         else:
-            raise Exception('A strategy has not been provided (set) to the trade')
+            raise MissingRequiredTradingElement(element_type='strategy')
 
     @property
     def broker(self):
-        """
-        Returns the broker instance.
-        """
-
         if self._broker:
             return self._broker
         else:
-            raise Exception('A broker has not been provided (set) to the trade')
+            raise MissingRequiredTradingElement(element_type='broker')
 
-    # TRADE SETUPS
-    def bind_to_trader(self, trader: 'AutoTrader'):
-        self._trader = trader
+    @property
+    def gl_tracker(self):
+        return self._gls_tracker
 
+    # INFO: Class Default Attribute Getters
+    @property
+    def is_live_trade(self):
+        return self._is_live_trade
+
+    @property
+    def codename(self):
+        return self._codename
+
+    @property
+    def bar_time_gap(self):
+        return self._interval_option.value[1]
+
+    @property
+    def last_refresh_timestamp(self):
+        return self._last_refresh_timestamp
+
+    @property
+    def reps_limit(self):
+        return self._reps
+
+    @property
+    def barfeed(self):
+        return self._barfeed
+
+    # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
+
+    # INFO: Class Key Attribute/Component Setters
     def set_sizer(self, sizer: Sizer):
         """set a ``Sizer`` class which is the default sizer for any
         strategy added to each trade
         """
         self._sizer = sizer
 
+    def set_stp_pricer(self, stp_pricer: StopOrderPricer = StopOrderPricer(is_trailed_by_percent=True,
+                                                                           is_price_increase_by_percent=True,
+                                                                           trail_percent=0.007,
+                                                                           price_increase_percent=0.005)):
+        """set a ``StopOrderPricer`` class which decides the stop_price and limit_price of stop orders
+        """
+        self._stp_pricer = stp_pricer
+
     def set_quoter(self, quoter: Optional[IQuoter]):
         """set a ``Strategy`` class to the trade for a single pass run.
         Instantiation will happen during ``run`` time.
         """
         self._quoter = quoter
-        self._quoter.set_quoter(self._ticker_alias)
+        self._quoter.set_ticker_symbol(self._ticker_alias)
 
-    def set_broker(self, broker: IBroker):
+    def set_broker(self, broker: Optional[Union[BaseBroker, BaseLiveBroker, IBroker]]):
         """
         Sets a specific ``broker`` instance for this strategy
         """
 
         if self._is_live_trade == broker.is_live:
-            broker.bind_to_trade(self)
+            broker.initialize(trading_symbol=self.trading_symbol, currency=self.currency)
             self._broker = broker
         else:
             raise InvalidBrokerSetting
@@ -234,11 +283,11 @@ class Trade:
         strategy.bind_to_trade(self)
         self._strategy = strategy
 
-    def set_gainloss_tracker(self, gainloss_tracker: GainLossTracker = GainLossTracker()):
-        self._gls_tracker = gainloss_tracker
+    def set_gls_tracker(self, gls: GainLossTracker = GainLossTracker()):
+        self._gls_tracker = gls
 
-    # TRADE STATUSES
-    def activate_trade(self):
+    # INFO: Dealing with Trade Status
+    def reset_trade(self):
         self._status = TradeStatus.ACTIVATED
 
     def cancel_trade(self):
@@ -259,136 +308,24 @@ class Trade:
     def is_settled(self):
         return self._status in [TradeStatus.CANCELLED, TradeStatus.CLOSED]
 
-    # AWAITING INTERVAL & DATA SETUP/REFRESHING
-    def set_data(self, datafeed: ICandleFeed = PYahooFinance()):
-        self._datafeed = datafeed
+    # INFO: Dealing with Candle/Bar Data and Interval
+    def set_data(self, datafeed: ICandleRetriever = PYahooFinance()):
+        self._candle_retriever = datafeed
 
         if self._exchange == 'TSX' or self._currency == 'CAD':
             ticker_symbol = self._ticker_alias
         else:
             ticker_symbol = self._trading_symbol
 
-        self._datafeed.set_ticker_symbol(ticker_symbol)
-        self._datafeed.set_interval(self.interval)
-        self._barfeed = BarFeed(self._datafeed.get_number_candles(self._interval_number))
-
-    @property
-    def bar_time_gap(self):
-        return self._data_interval.value[1]
-
-    @property
-    def last_refresh_timestamp(self):
-        return self._last_refresh_timestamp
+        self._candle_retriever.set_ticker_symbol(ticker_symbol)
+        self._candle_retriever.set_interval(self._interval_option.value[0])
+        self._barfeed = BarFeed(self._candle_retriever.get_x_candles(self._candle_count))
 
     def refresh_data(self):
         if self.is_live_trade and self._market_hour.is_open_now():
-            bar_df = self._datafeed.get_number_candles(self._interval_number)
+            bar_df = self._candle_retriever.get_x_candles(self._candle_count)
             self._barfeed = BarFeed(bar_df)
             self._last_refresh_timestamp = datetime.datetime.now().timestamp()
-
-    @property
-    def barfeed(self):
-        return self._barfeed
-
-    @property
-    def interval(self):
-        return self._data_interval.value[0]
-
-    # ORDERS, UPDATING & ADDING & REMOVING
-    @property
-    def filled_sell_count(self):
-        return self._filled_sell_count
-
-    @property
-    def filled_buy_count(self):
-        return self._filled_buy_count
-
-    def add_order(self, order: Order):
-        # check if there is already an active order in the trade or not
-        if not self.active_order:
-            self.active_order = order
-
-        else:
-            raise Exception('There is already an active order in the trade. New orders cannot be added')
-
-    def is_order_addable(self, isbuy: bool):
-
-        if self.is_stopped():
-            return False
-
-        if self.active_order:
-            return False
-
-        if isbuy and self._filled_buy_count == self._reps:
-            return False
-
-        if not isbuy and self._filled_sell_count == self._reps:
-            return False
-
-        return True
-
-    def remove_order(self):
-        # check if there is currently an active order to be removed or not
-        if self.active_order:
-            # check if the current active order is settled or not before removing
-            if self.active_order.is_settled():
-
-                if self.active_order.is_filled():
-
-                    # increment buy/sell order count
-                    if self.active_order.isbuy:
-                        self._filled_buy_count += 1
-
-                    else:
-                        self._filled_sell_count += 1
-
-                    if self._filled_sell_count == self._filled_buy_count == self._reps:
-                        self.close_trade()
-
-                    # append to filled order list
-                    self.filled_orders.append(self.active_order)
-                    self.active_order = None
-
-                else:
-                    # append to filled order list
-                    self.discarded_orders.append(self.active_order)
-                    self.active_order = None
-            else:
-                raise Exception('There is an active unsettled order in the trade. The order cannot be removed until '
-                                'it is deactivated')
-        else:
-            raise Exception('There is no active order to remove. Please check the order removal logic & procedure.')
-
-    def is_order_removable(self):
-
-        if not self.active_order:
-            return False
-
-        if not self.active_order.is_settled():
-            return False
-
-        return True
-
-    def update_order(self, order):
-        # check if there is currently an active order to be updated or not
-        if self.active_order:
-            if not self.active_order.is_settled():
-                self.active_order = order
-            else:
-                raise Exception('There is still a settled in place which cannot be updated. '
-                                'Please check the order updating and removal logic & procedure.')
-        else:
-            raise Exception('There is no active order to update. Please check the order updating logic & procedure.')
-
-    def is_order_updatable(self):
-
-        if not self.active_order:
-            return False
-
-        if self.active_order.is_settled():
-            return False
-
-        return True
 
     # EXECUTION/RUN TRADE
     def execute(self):
@@ -396,7 +333,14 @@ class Trade:
             self.refresh_data()
             for _ in range(self.barfeed.bar_count):
                 next(self.strategy)
+                if self.is_stopped():
+                    break
 
+    # DIVIDER: Class Private Methods to Process Data Internally -----------------------------------
+
+
+# DIVIDER: --------------------------------------
+# INFO: Usage Examples
 
 if __name__ == '__main__':
     pass

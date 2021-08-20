@@ -37,54 +37,81 @@ class BaseBroker:
         tojoin.append('TickerID: {}'.format(self._ticker_id))
         tojoin.append('Currency: {}'.format(self._currency))
 
+    # DIVIDER: Publicly Accessible Method Properties ----------------------------------------------
+
+    @property
+    def pending_orders(self):
+        return self._pending_orders
+
+    @property
+    def settled_orders(self):
+        return self._settled_orders
+
+    @property
+    def trading_symbol(self):
+        if not self._trading_symbol:
+            raise MissingRequiredTradingElement(element_type='trading_symbol')
+        else:
+            return self._trading_symbol
+
+    @property
+    def currency(self):
+        if not self._currency:
+            raise MissingRequiredTradingElement(element_type='currency')
+        else:
+            return self._currency
+
+    @property
+    def position(self):
+        if not self._position:
+            raise MissingRequiredTradingElement(element_type='position')
+        else:
+            return self._position
+
+    @property
+    def ticker_id(self):
+        if not self._ticker_id:
+            raise MissingRequiredTradingElement(element_type='ticker_id')
+        else:
+            return self._ticker_id
+
     def _update_position(self, order: Union[RegularOrder, StopOrder]):
         if order.is_filled():
             self._position.update(order.isbuy, order.fill_quantity, buy_price=order.filled_price)
 
-    def _upsert_pending(self, order: Union[RegularOrder, StopOrder], is_insert=True):
-
-        if order.broker_ref_id in self._pending_orders:
-            if is_insert:
-                raise InvalidOrderListCUD(class_name=type(self).__name__, operation='insert', order_list_type='pending',
-                                          additional_msg='The order already exists. Please review Broker code logic')
-            else:
-                if order.is_settled():
-                    raise InvalidOrderListCUD(class_name=type(self).__name__, operation='update',
-                                              order_list_type='pending', expected_order='pending',
-                                              unexpected_order='settled',
-                                              additional_msg='Please review Broker code logic')
-
-                else:
-                    self._pending_orders[order.broker_ref_id] = order
-                    print(f"{type(self).__name__}: Order {order.broker_ref_id} has been updated in PENDING list")
-
+    def _upsert_pending(self, order: Union[RegularOrder, StopOrder]):
+        if order.is_settled():
+            raise InvalidOrderListCUD(operation='update',
+                                      order_list_type='pending', expected_order='pending',
+                                      unexpected_order='settled',
+                                      additional_msg='Please review Broker code logic')
         else:
-            if is_insert:
+            if order.broker_ref_id in self._pending_orders:
+                self._pending_orders[order.broker_ref_id] = order
+                print(f"{type(self).__name__}: Order {order.broker_ref_id} has been updated in PENDING list")
+
+            else:
                 self._pending_orders[order.broker_ref_id] = order
                 print(f"{type(self).__name__}: Order {order.broker_ref_id} has been added to PENDING list")
-
-            else:
-                raise InvalidOrderListCUD(class_name=type(self).__name__, operation='update',
-                                          order_list_type='pending',
-                                          additional_msg='The order doest not already exists. '
-                                                         'Please review Broker code logic')
 
     def _upsert_settled(self, order: Union[RegularOrder, StopOrder, None] = None):
         if order:
             if order.is_settled():
                 if order.broker_ref_id in self._settled_orders:
-                    raise InvalidOrderListCUD(class_name=type(self).__name__, operation='insert',
+                    raise InvalidOrderListCUD(operation='insert',
                                               order_list_type='settled',
-                                              additional_msg='The order already exists. Please review Broker code logic')
+                                              additional_msg='The order already exists. '
+                                                             'Please review Broker code logic')
 
                 else:
                     if order.broker_ref_id in self._pending_orders:
+
                         self._settled_orders[order.broker_ref_id] = self._pending_orders.pop(order.broker_ref_id)
                         print(f"{type(self).__name__}: Order {order.broker_ref_id} has been removed from PENDING and "
                               f"inserted to SETTLED order list")
 
                     else:
-                        InvalidOrderListCUD(class_name=type(self).__name__, operation='insert',
+                        InvalidOrderListCUD(operation='insert',
                                             order_list_type='settled',
                                             additional_msg='The order does not exists in pending list. '
                                                            'Please review Broker code logic')
@@ -118,7 +145,7 @@ class BaseLiveBroker(BaseBroker):
 
         # trading account & cash
         self._trading_account_id: Optional[str] = None
-        self._account_cash_available: float = 0
+        self._buying_power: float = 0
 
     def _is_well_setup(self):
         """
@@ -127,22 +154,22 @@ class BaseLiveBroker(BaseBroker):
         """
 
         if not self._trading_account_id:
-            raise MissingRequiredTradingElement(class_name=type(self).__name__, element_type='trading_account_id')
+            raise MissingRequiredTradingElement(element_type='trading_account_id')
 
         if not self._ticker_id:
-            raise MissingRequiredTradingElement(class_name=type(self).__name__, element_type='ticker_id')
+            raise MissingRequiredTradingElement(element_type='ticker_id')
 
         if not self._trading_symbol:
-            raise MissingRequiredTradingElement(class_name=type(self).__name__, element_type='trading_symbol')
+            raise MissingRequiredTradingElement(element_type='trading_symbol')
 
         if not self._currency:
-            raise MissingRequiredTradingElement(class_name=type(self).__name__, element_type='currency')
+            raise MissingRequiredTradingElement(element_type='currency')
 
         if not self._position:
-            raise MissingRequiredTradingElement(class_name=type(self).__name__, element_type='position')
+            raise MissingRequiredTradingElement(element_type='position')
 
         if not self._conn:
-            raise MissingRequiredTradingElement(class_name=type(self).__name__, element_type='connection')
+            raise MissingRequiredTradingElement(element_type='connection')
 
         return True
 
@@ -153,7 +180,11 @@ class BaseLiveBroker(BaseBroker):
 class IBroker(ABC):
 
     @abstractmethod
-    def bind_to_trade(self, trade):
+    def initialize(self, trading_symbol: str, currency: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _find_ticker_id(self):
         raise NotImplementedError()
 
     @property
@@ -163,7 +194,7 @@ class IBroker(ABC):
 
     @property
     @abstractmethod
-    def ticker_symbol(self):
+    def trading_symbol(self):
         raise NotImplementedError()
 
     @abstractmethod
@@ -203,15 +234,15 @@ class IBroker(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def update_order(self, order: Union[RegularOrder, StopOrder], ref_price: float):
+    def update_order(self, order: Union[RegularOrder, StopOrder], ref_price: Optional[float] = None):
         raise NotImplementedError()
 
     @abstractmethod
-    def update_pending_orders(self, ref_price: float):
+    def update_pending_orders(self, ref_price: Optional[float] = None):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_position(self, position: Position, is_live_position: bool) -> Position:
+    def get_position(self, is_live_position: bool) -> Position:
         raise NotImplementedError()
 
 
@@ -224,16 +255,6 @@ class ILiveBroker(ABC):
     @abstractmethod
     def trading_account(self):
         """Returns the trading account ID"""
-        raise NotImplementedError()
-
-    @abstractmethod
-    @trading_account.setter
-    def trading_account(self, trading_account_id: str):
-        """
-        Sets the the account to be used for trading
-        :param trading_account_id: account_id of the account used for trading
-        :type trading_account_id: str
-        """
         raise NotImplementedError()
 
     @abstractmethod
@@ -251,7 +272,7 @@ class ILiveBroker(ABC):
 
     @staticmethod
     @abstractmethod
-    def translate_order_status(broker_order_status: str):
+    def _translate_order_status(broker_order_status: str):
         """Translates broker order status to system order status"""
         raise NotImplementedError()
 

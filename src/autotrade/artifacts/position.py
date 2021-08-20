@@ -29,12 +29,6 @@ class Position:
 
         return ', '.join(tojoin)
 
-    def set_ticker_id(self, ticker_id: str):
-        self._ticker_id = ticker_id
-
-    def set_currency(self, currency: str):
-        self._currency = currency
-
     # DIVIDER: Publicly Accessible Method Properties ----------------------------------------------
     @property
     def size(self):
@@ -45,6 +39,10 @@ class Position:
         return self._ticker_symbol
 
     @property
+    def ticker_id(self):
+        return self._ticker_id
+
+    @property
     def currency(self):
         return self._currency
 
@@ -52,11 +50,16 @@ class Position:
     def average_buy_price(self):
         return self._average_buy_price
 
-    @property
     def has_position(self):
         return True if self._size else False
 
     # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
+    def set_ticker_id(self, ticker_id: str):
+        self._ticker_id = ticker_id
+
+    def set_currency(self, currency: str):
+        self._currency = currency
+
     def retrieve(self, quantity: int, price: float):
 
         self._size = quantity
@@ -64,7 +67,7 @@ class Position:
 
     def open(self, quantity: int, buy_price: float):
         if self._size:
-            raise ItemAlreadyExistError(class_name=type(self).__name__, item_type='size')
+            raise ItemAlreadyExistError(item_type='size')
         self._average_buy_price = buy_price
         self._size = quantity
 
@@ -77,7 +80,7 @@ class Position:
             if buy_price:
                 self._add(quantity=quantity, buy_price=buy_price)
             else:
-                raise MissingPrice(class_name=type(self).__name__, price_type='buy_price')
+                raise MissingPrice(price_type='buy_price')
         else:
             self._remove(quantity=quantity)
 
@@ -89,7 +92,7 @@ class Position:
 
     def _remove(self, quantity: int):
         if not self._size:
-            raise ItemNonExistenceError(class_name=type(self).__name__, item_type='size')
+            raise ItemNonExistenceError(item_type='size')
 
         if quantity > self._size:
             quantity = self._size

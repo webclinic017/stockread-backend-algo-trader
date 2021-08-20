@@ -12,9 +12,6 @@ from src.errors import BrokerTypeError, InputParameterConflict, MissingPrice
 
 # TODO: Allow reset counter for new trade reps if there is no stop loss executed
 # TODO: Allow strategy to check if there is any stop loss executed before (prenext) processing next bar
-# TODO: Report gain loss and add the executed stoploss to filled_orders
-# TODO: Update & Add & Replace, Remove stoploss operation
-# TODO: Check if strategy required stop loss or not before adding stoploss logic to methods
 # TODO: Check if strategy required stop loss or not before creating TrailingStopOrderController instance in strategy (if add else no)
 # TODO: Implement system stoploss
 
@@ -22,18 +19,15 @@ from src.errors import BrokerTypeError, InputParameterConflict, MissingPrice
 # INFO: TrailingStopOrderController Concrete Class
 
 
-class StopOrderController:
-    """Manage stop orders and control actions on these stop orders"""
+class StopOrderPricer:
+    """Compute stop orders stop and limit prices"""
 
-    def __init__(self, broker: Union[IBroker, BaseBroker],
-                 is_trailed_by_percent: bool, is_price_increase_by_percent: bool, is_slt_price_gap_by_percent: bool,
-                 trail_percent: float = 0.0, trail_amount: float = 0.0,
-                 price_increase_percent: float = 0.0, price_increase_amount: float = 0.0,
-                 stop_limit_price_gap_percent: float = 0.0, stop_limit_price_gap_amount: float = 0.0):
+    def __init__(self, is_trailed_by_percent: bool, is_price_increase_by_percent: bool,
+                 is_slt_price_gap_by_percent=False, trail_percent=None, trail_amount=None,
+                 price_increase_percent=None, price_increase_amount=None,
+                 stop_limit_price_gap_percent=None, stop_limit_price_gap_amount=None):
 
         """
-        :param broker: a broker to which stop orders are submitted
-        :type broker: Union[IBroker, BaseBroker]
 
         :param is_trailed_by_percent: if the trailing difference is 'by_percent' or 'by_amount' between
         the anchor price and stop price
@@ -72,28 +66,30 @@ class StopOrderController:
         :type stop_limit_price_gap_amount: float
         """
 
-        # IMPORTANT: Checking LiveBroker Requirement
-        if broker.is_live:
-            raise BrokerTypeError(class_name=type(self).__name__, expected_live_broker=True)
-
         # IMPORTANT: Setting up Stop Order Elements - Trailing StopPrice by Percent
         self._is_trailed_by_percent = is_trailed_by_percent
         self._trail_percent: float = 0.0
         self._trail_amount: float = 0.0
 
         if self._is_trailed_by_percent:
-            self._trail_percent = trail_percent
+            if trail_percent:
+                self._trail_percent = trail_percent
+            else:
+                raise ValueError("Missing TrailPercent")
             if trail_amount:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='trail_by_percent',
+                raise InputParameterConflict(provided_input='trail_by_percent',
                                              input_types=('trail_by_percent', 'trail_by_amount'),
                                              expected_corresponding_input='percent',
                                              unexpected_corresponding_input='amount',
                                              corresponding_input_types=('percent', 'amount'))
 
         else:
-            self._trail_amount = trail_amount
+            if trail_amount:
+                self._trail_amount = trail_amount
+            else:
+                raise ValueError("Missing TrailAmount")
             if trail_percent:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='trail_by_amount',
+                raise InputParameterConflict(provided_input='trail_by_amount',
                                              input_types=('trail_by_percent', 'trail_by_amount'),
                                              expected_corresponding_input='amount',
                                              unexpected_corresponding_input='percent',
@@ -105,18 +101,25 @@ class StopOrderController:
         self._price_increase_amount: float = 0.0
 
         if self._is_price_increase_by_percent:
-            self._price_increase_percent = price_increase_percent
+            if price_increase_percent:
+                self._price_increase_percent = price_increase_percent
+            else:
+                raise ValueError("Missing PriceIncreasePercent")
+
             if price_increase_amount:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='price_increase_by_percent',
+                raise InputParameterConflict(provided_input='price_increase_by_percent',
                                              input_types=('price_increase_by_percent', 'price_increase_by_amount'),
                                              expected_corresponding_input='percent',
                                              unexpected_corresponding_input='amount',
                                              corresponding_input_types=('percent', 'amount'))
 
         else:
-            self._price_increase_amount = price_increase_amount
+            if price_increase_amount:
+                self._price_increase_amount = price_increase_amount
+            else:
+                raise ValueError("Missing PriceIncreaseAmount")
             if price_increase_percent:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='price_increase_by_amount',
+                raise InputParameterConflict(provided_input='price_increase_by_amount',
                                              input_types=('price_increase_by_percent', 'price_increase_by_amount'),
                                              expected_corresponding_input='amount',
                                              unexpected_corresponding_input='percent',
@@ -129,39 +132,31 @@ class StopOrderController:
 
         if self._is_slt_price_gap_by_percent:
             self._stop_limit_price_gap_percent = stop_limit_price_gap_percent
+
             if stop_limit_price_gap_amount:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='slt_price_gap_by_percent',
+                raise InputParameterConflict(provided_input='slt_price_gap_by_percent',
                                              input_types=('slt_price_gap_by_percent', 'slt_price_gap_by_amount'),
                                              expected_corresponding_input='percent',
                                              unexpected_corresponding_input='amount',
                                              corresponding_input_types=('percent', 'amount'))
 
         else:
-            self._price_increase_amount = price_increase_amount
-            if price_increase_percent:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='slt_price_gap_by_amount',
-                                             input_types=('price_increase_by_percent', 'price_increase_by_amount'),
+            self._stop_limit_price_gap_amount = stop_limit_price_gap_amount
+
+            if stop_limit_price_gap_percent:
+                raise InputParameterConflict(provided_input='slt_price_gap_by_amount',
+                                             input_types=('slt_price_gap_by_percent', 'slt_price_gap_by_amount'),
                                              expected_corresponding_input='amount',
                                              unexpected_corresponding_input='percent',
                                              corresponding_input_types=('percent', 'amount'))
 
-        # Assigning constructor parameters to class attributes
-
-        self._live_broker = broker
-        self._ticker_symbol = ticker_symbol
-
-        self._trailing_stop_order: Optional[StopOrder] = None
-        self._initial_onetime_stop_order: Optional[StopOrder] = None
-        self._stoploss_count: int = 0
-
-        self.executed_sls: List[StopLoss] = list()
-        self.killed_sls: List[StopLoss] = list()
+        self._latest_ref_price: float = 0.0
+        self._latest_stop_price: float = 0.0
+        self._latest_limit_price: float = 0.0
 
     def __str__(self):
         tojoin = list()
         tojoin.append('ClassType: {}'.format(type(self).__name__))
-        tojoin.append('TickerSymbol: {}'.format(self._ticker_symbol))
-        tojoin.append('BrokerType: {}'.format(type(self._live_broker).__name__))
 
         tojoin.append('TrailingStopPriceByPercent: {}'.format(self._is_trailed_by_percent))
         if self._is_trailed_by_percent:
@@ -183,61 +178,85 @@ class StopOrderController:
 
         return ', '.join(tojoin)
 
-    def create_initial_stp(self, isstoplimit: bool, size: int, is_price_required: bool,
-                           stop_price: float = 0.0, limit_price: float = 0.0, ref_price: float = 0.0):
-        if self._stoploss_count > 0:
-            raise ValueError('The initial stop order has already be created')
-
-        if is_price_required:
-            if stop_price:
-                if isstoplimit:
-                    if not limit_price:
-                        raise MissingPrice(class_name=type(self).__name__, price_type='limit_price')
-
+    def get_stop_limit_prices(self, ref_price: float, is_to_trail=True):
+        if not is_to_trail:
+            if self._is_trailed_by_percent:
+                estimated_stop_price = round(ref_price * (1 - self._trail_percent), 2)
             else:
-                raise MissingPrice(class_name=type(self).__name__, price_type='stop_price')
+                estimated_stop_price = round(ref_price - self._trail_amount, 2)
+
+            if self._is_slt_price_gap_by_percent:
+                estimated_limit_price = round(estimated_stop_price * (1 - (self._stop_limit_price_gap_percent if
+                                                                           self._stop_limit_price_gap_percent else 0)), 2)
+            else:
+                estimated_limit_price = round(estimated_stop_price - (self._stop_limit_price_gap_amount if
+                                                                      self._stop_limit_price_gap_amount else 0), 2)
+
+                return {'stop_price': estimated_limit_price, 'limit_price': estimated_limit_price}
 
         else:
-            if not ref_price:
-                raise MissingPrice(class_name=type(self).__name__, price_type='ref_price')
-
-            else:
-                if self._is_trailed_by_percent:
-                    stop_price = round(ref_price * (1 - self._trail_percent), 2)
-
-                    if isstoplimit:
-                        if self._is_slt_price_gap_by_percent:
-                            limit_price = round(stop_price * (1 - self._stop_limit_price_gap_percent), 2)
-                        else:
-                            limit_price = round(stop_price - self._stop_limit_price_gap_amount, 2)
+            if self._latest_ref_price:
+                if self._is_price_increase_by_percent:
+                    if (ref_price / self._latest_ref_price - 1) >= self._price_increase_percent:
+                        self._latest_ref_price = ref_price
                     else:
-                        limit_price = 0.0
-
+                        return
                 else:
-                    stop_price = round(ref_price - self._trail_amount, 2)
-
-                    if isstoplimit:
-                        if self._is_slt_price_gap_by_percent:
-                            limit_price = round(stop_price * (1 - self._stop_limit_price_gap_percent), 2)
-                        else:
-                            limit_price = round(stop_price - self._stop_limit_price_gap_amount, 2)
+                    if ref_price - self._latest_ref_price >= self._price_increase_amount:
+                        self._latest_ref_price = ref_price
                     else:
-                        limit_price = 0.0
+                        return
+            else:
+                self._latest_ref_price = ref_price
 
-        isbuy = False  # stop loss is a sell
+            # compute stop price
+            if self._is_trailed_by_percent:
+                estimated_stop_price = round(self._latest_ref_price * (1 - self._trail_percent), 2)
+            else:
+                estimated_stop_price = round(self._latest_ref_price - self._trail_amount, 2)
 
-        stop_order = StopOrder(self._ticker_symbol, size=size, isbuy=isbuy, isstoplimit=isstoplimit,
-                               stop_price=stop_price, limit_price=limit_price, ref_price=ref_price)
-        if isstoplimit:
-            stop_order = self._live_broker.stop_limit_sell(order=stop_order)
-        else:
-            stop_order = self._live_broker.stop_loss(order=stop_order)
+            if estimated_stop_price > self._latest_stop_price:
+                self._latest_stop_price = estimated_stop_price
+            else:
+                return
 
-        self._stoploss_count += 1
-        self._initial_onetime_stop_order = stop_order
+            # compute limit price
+            if self._is_slt_price_gap_by_percent:
+                if self._stop_limit_price_gap_percent:
+                    self._latest_limit_price = round(self._latest_stop_price * (1 - self._stop_limit_price_gap_percent), 2)
+                else:
+                    self._latest_limit_price = self._latest_stop_price
+            else:
+                if self._stop_limit_price_gap_amount:
+                    self._latest_limit_price = round(self._latest_stop_price - self._stop_limit_price_gap_amount, 2)
+                else:
+                    self._latest_limit_price = self._latest_stop_price
 
-        return stop_order
+            return {'stop_price': self._latest_stop_price, 'limit_price': self._latest_limit_price}
 
-    def remove_stp(self):
-        if self._initial_onetime_stop_order:
-            pass
+    def reset_trailing(self):
+        self._latest_ref_price = 0.0
+        self._latest_stop_price = 0.0
+        self._latest_limit_price = 0.0
+
+    def set_trailing(self, ref_price: float, stop_price: float):
+        self._latest_ref_price = ref_price
+        self._latest_stop_price = stop_price
+
+    @property
+    def latest_ref_price(self):
+        return self._latest_ref_price
+
+    @property
+    def latest_stop_price(self):
+        return self._latest_stop_price
+
+if __name__ == '__main__':
+    stp_pricer = StopOrderPricer(is_trailed_by_percent=True, is_price_increase_by_percent=True,
+                                 trail_percent=0.007, price_increase_percent=0.005)
+
+    slt_prices = stp_pricer.get_stop_limit_prices(ref_price=23.88)
+    print(slt_prices)
+    slt_prices = stp_pricer.get_stop_limit_prices(ref_price=24.05, is_to_trail=True)
+
+    print(slt_prices)

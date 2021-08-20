@@ -62,7 +62,7 @@ class PublicBase:
 # DIVIDER: --------------------------------------
 # INFO: ICandleFeed Interface
 
-class ICandleFeed(ABC):
+class ICandleRetriever(ABC):
     @abstractmethod
     def set_interval(self, interval: str):
         raise NotImplementedError()
@@ -76,7 +76,7 @@ class ICandleFeed(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_number_candles(self, number: int) -> pd.DataFrame:
+    def get_x_candles(self, candle_count: int) -> pd.DataFrame:
         raise NotImplementedError()
 
     @property

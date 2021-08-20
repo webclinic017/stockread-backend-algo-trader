@@ -10,15 +10,17 @@ from src.errors import InputParameterConflict
 # INFO: Sizer Concrete Class
 
 class Sizer:
-    def __init__(self, isbysize: bool, size: int = 0, amount: float = 0.0):
+    def __init__(self, isbysize: bool, size: int = 0, amount: float = 0.0, buy_power_ratio: float = 0.95):
         self._isbysize = isbysize
         self._size: int = 0
+
         self._amount: float = 0.0
+        self._buy_power_ratio: float = 0.0
 
         if self._isbysize:
             self._size = size
             if amount:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_size',
+                raise InputParameterConflict(provided_input='by_size',
                                              input_types=('by_size', 'by_amount'),
                                              expected_corresponding_input='size',
                                              unexpected_corresponding_input='amount',
@@ -26,8 +28,9 @@ class Sizer:
 
         else:
             self._amount = amount
+            self._buy_power_ratio = buy_power_ratio
             if size:
-                raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_amount',
+                raise InputParameterConflict(provided_input='by_amount',
                                              input_types=('by_size', 'by_amount'),
                                              expected_corresponding_input='amount',
                                              unexpected_corresponding_input='size',
@@ -52,7 +55,7 @@ class Sizer:
     @property
     def size(self):
         if not self._isbysize:
-            raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_amount',
+            raise InputParameterConflict(provided_input='by_amount',
                                          input_types=('by_size', 'by_amount'),
                                          expected_corresponding_input='amount',
                                          unexpected_corresponding_input='size',
@@ -62,7 +65,7 @@ class Sizer:
     @property
     def amount(self):
         if self._isbysize:
-            raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_size',
+            raise InputParameterConflict(provided_input='by_size',
                                          input_types=('by_size', 'by_amount'),
                                          expected_corresponding_input='size',
                                          unexpected_corresponding_input='amount',
@@ -74,7 +77,7 @@ class Sizer:
     # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
     def sizebyamount(self, ref_price: float, buy_power_ratio: float = 0.95):
         if self._isbysize:
-            raise InputParameterConflict(class_name=type(self).__name__, provided_input='by_amount',
+            raise InputParameterConflict(provided_input='by_amount',
                                          input_types=('by_size', 'by_amount'),
                                          expected_corresponding_input='amount',
                                          unexpected_corresponding_input='size',
@@ -84,6 +87,15 @@ class Sizer:
                 raise ValueError('Unable to buy more than the pre-set amount. Buy power ratio must be <= 1.0.')
             else:
                 return math.floor((self._amount * buy_power_ratio) / ref_price)
+
+    def setamount(self, amount: float = 0.0, buy_power_ratio: float = 0.95):
+        if amount:
+            self._isbysize = False
+            self._amount = amount
+            self._buy_power_ratio = buy_power_ratio
+        else:
+            self._isbysize = False
+            self._buy_power_ratio = buy_power_ratio
 
 
 # DIVIDER: --------------------------------------

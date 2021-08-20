@@ -3,10 +3,10 @@ import pandas as pd
 import yfinance as yf
 from yahooquery import Ticker
 
-from src.datafeed.yahoofinance.yf_base import ICandleFeed, PublicBase
+from src.datafeed.yahoofinance.yf_base import ICandleRetriever, PublicBase
 
 
-class PYahooFinance(PublicBase, ICandleFeed):
+class PYahooFinance(PublicBase, ICandleRetriever):
 
     def __init__(self, period=None, is_fromto: bool = False, start=None, end=None):
         super().__init__(period=period, is_fromto=is_fromto, start=start, end=end)
@@ -62,13 +62,13 @@ class PYahooFinance(PublicBase, ICandleFeed):
                                 interval=self._interval, proxy=None, rounding=False)
         return self._format_dataframe(single_df)
 
-    def get_number_candles(self, number: int) -> pd.DataFrame:
-        days = super()._compute_data_days(number)
+    def get_x_candles(self, candle_count: int) -> pd.DataFrame:
+        days = super()._compute_data_days(candle_count)
         period = f'{days}d'
         single_df = yf.download(self.ticker_symbol, start=self._start, end=self._end, actions=False, threads=True,
                                 group_by='ticker', period=period, show_errors=True,
                                 interval=self._interval, proxy=None, rounding=False)
-        df = self._format_dataframe(single_df).tail(number)
+        df = self._format_dataframe(single_df).tail(candle_count)
         df.reset_index(level=0, drop=True, inplace=True)
         return df
 
@@ -77,7 +77,7 @@ class PYahooFinance(PublicBase, ICandleFeed):
         return self._ticker_symbol
 
 
-class PYahooQuery(PublicBase, ICandleFeed):
+class PYahooQuery(PublicBase, ICandleRetriever):
     def __init__(self, period=None, is_fromto: bool = False, start=None, end=None):
         super().__init__(period=period, is_fromto=is_fromto, start=start, end=end)
 
@@ -131,12 +131,12 @@ class PYahooQuery(PublicBase, ICandleFeed):
         single_df = single_ticker.history(period=self._period, interval=self._interval, start=self._start, end=self._end)
         return self._format_dataframe(single_df)
 
-    def get_number_candles(self, number: int) -> pd.DataFrame:
-        days = super()._compute_data_days(number)
+    def get_x_candles(self, candle_count: int) -> pd.DataFrame:
+        days = super()._compute_data_days(candle_count)
         period = f'{days}d'
         single_ticker = Ticker(self.ticker_symbol, asynchronous=False)
         single_df = single_ticker.history(period=period, interval=self._interval, start=self._start, end=self._end)
-        df = self._format_dataframe(single_df).tail(number)
+        df = self._format_dataframe(single_df).tail(candle_count)
         df.reset_index(level=0, drop=True, inplace=True)
         return df
 
@@ -152,4 +152,4 @@ if __name__ == '__main__':
     datafeed.set_ticker_symbol('AC.TO')
     datafeed.set_interval('5m')
     # datafeed.get_candles()
-    print(datafeed.get_number_candles(500))
+    print(datafeed.get_x_candles(500))

@@ -28,11 +28,11 @@ class TestStrategy(bt.Strategy):
         self.bar_executed = 0
 
     def notify_order(self, order):
-        if order.status in [order.Submitted, order.Accepted]:
+        if order._status in [order.Submitted, order.Accepted]:
             return
 
-        if order.status in [order.Completed]:
-            if order.isbuy():
+        if order._status in [order.Completed]:
+            if order._isbuy():
                 self.log(
                     'BUY EXECUTED, Price: %.2f, Cost: %.2f, Comm %.2f' %
                     (order.executed.price,
@@ -46,7 +46,7 @@ class TestStrategy(bt.Strategy):
 
             self.bar_executed = len(self)
 
-        elif order.status in [order.Canceled, order.Margin, order.Rejected]:
+        elif order._status in [order.Canceled, order.Margin, order.Rejected]:
             self.log('Order Canceled/Margin/Rejected')
 
         self.order = None

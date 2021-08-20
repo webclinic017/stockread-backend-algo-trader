@@ -1,12 +1,13 @@
-from src.autotrade.artifacts.sizer import Sizer
-from src.autotrade.broker.wsimple_broker import WSimpleBroker
-from src.autotrade.broker_conn.wsimple_conn import ConnectionWST
-from src.autotrade.strategy.strat_base import BaseStrategy
-from src.autotrade.trade import Trade, IntervalOption
 
-ac_tradingbot = Trade(codename='AC.TO_20210804', is_live_trade=True, trading_symbol='AC', ticker_alias='AC.TO',
-                      currency='CAD', data_interval=IntervalOption.I_5MINS, interval_number=300,
-                      exchange='TSX', reps=1)
+
+from src.autotrade.artifacts.sizer import Sizer
+from src.autotrade.broker.back_broker import BackBroker
+from src.autotrade.strategy.rsi_strategy import RSICloudBollStrategy
+from src.autotrade.trade import Trade
+
+ac_tradingbot = Trade(codename='AC.TO_20210804', is_live_trade=False, trading_symbol='AC', ticker_alias='AC.TO',
+                      currency='CAD', interval_option='5m', candle_count=500,
+                      exchange='TSX', reps=2)
 
 barfeed = ac_tradingbot.barfeed
 # print(barfeed.latest_bar)
@@ -16,18 +17,10 @@ barfeed = ac_tradingbot.barfeed
 # print(ac_tradingbot.interval)
 
 
-strategy = BaseStrategy()
-
-conn_wst = ConnectionWST()
-conn_wst.connect()
-wst_auth = conn_wst.wst_auth
-brok_wst = WSimpleBroker()
-brok_wst.set_connection(wst_auth)
-brok_wst.set_trading_account("tfsa-hyrnpbqo")
-ac_tradingbot.set_broker(brok_wst)
-# ac_tradingbot.set_broker(BackBroker())
-ac_tradingbot.set_sizer(Sizer(is_by_size=True))
-ac_tradingbot.set_strategy(strategy)
+ac_tradingbot.set_broker(BackBroker())
+ac_tradingbot.set_sizer(Sizer(isbysize=True, size=100))
+ac_tradingbot.set_strategy(RSICloudBollStrategy())
+ac_tradingbot.set_stp_pricer()
 ac_tradingbot.execute()
 
 

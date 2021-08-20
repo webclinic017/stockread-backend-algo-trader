@@ -6,8 +6,7 @@
 # INFO: GainLossTracker Concrete Class
 
 class GainLossTracker:
-    def __init__(self, cash: float = 0.0):
-        self._cash: float = cash
+    def __init__(self):
 
         self._holding_volume: int = 0
         self._total_sale_volume: int = 0
@@ -34,20 +33,12 @@ class GainLossTracker:
         return self._total_commission
 
     # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
-    def add_cash(self, cash_value: float):
-        self._cash += cash_value
-
-    def remove_cash(self, cash_value: float):
-        self._cash -= cash_value
 
     def add_holding(self, purchase_value: float, purchase_volume: int, commission: float = 0.0):
         self._holding_value += purchase_value
         self._holding_volume += purchase_volume
         self._purchase_count += 1
         self._total_commission += commission
-
-        if self._cash:
-            self._cash -= purchase_value
 
     def make_sale(self, sale_value: float, sale_volume: int, commission: float = 0.0):
         self._total_sale += sale_value
@@ -61,16 +52,15 @@ class GainLossTracker:
         self._sale_count += 1
         self._total_commission += commission
 
-        self._cash += (sale_value - commission)
-
-    def get_realized_gain_loss(self):
+    @property
+    def realized_gain_loss(self):
         return round(self._total_sale - self._total_cost_of_sale - self._total_commission, 2)
 
-    def get_unrealized_gain_loss(self, market_price: float):
+    def estimate_unrealized_gls(self, market_price: float):
         if self._holding_volume:
             return round(self._holding_volume * market_price - self._holding_value, 2)
         else:
-            return 0.0
+            return self._holding_volume
 
 
 # DIVIDER: --------------------------------------

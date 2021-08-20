@@ -13,7 +13,7 @@ class Bar:
         self.interval: Optional[str] = None
         self.ticker_symbol: Optional[str] = None
 
-        # this line of code must be at the end of the constructor to be able to overwrite the pre-declared attributes
+        # IMPORTANT: this line must be at the end of the constructor to be able to overwrite the pre-declared attributes
         self.__dict__.update(bar_dict)
 
     def __repr__(self):
