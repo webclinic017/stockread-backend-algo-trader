@@ -1,9 +1,8 @@
-import datetime
 import math
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional, Union, Dict, Deque
-
+from src.utility.helper import ColorPrinter
 from src.autotrade.artifacts.order import RegularOrder, StopOrder
 from src.autotrade.bars.bar import Bar
 from src.autotrade.bars.barfeed import BarFeed
@@ -28,8 +27,6 @@ class BaseStrategy(ABC):
         # BARS & BARS CONTROL
         self._barfeed: Optional[BarFeed] = None
         self._bars: Optional[Deque[Bar]] = None
-        self._last_bar_timestamp = None
-        self._next_bar_timestamp = None
         self._bar_count = 0
 
     # DIVIDER: Required Class Construction Methods --------------------------------------------------------
@@ -72,6 +69,10 @@ class BaseStrategy(ABC):
         return self.trade.broker.get_position(is_live_position=False)
 
     @property
+    def market_hour(self):
+        return self.trade.market_hour
+
+    @property
     def broker(self):
         return self.trade.broker
 
@@ -85,9 +86,8 @@ class BaseStrategy(ABC):
 
     @property
     def barfeed(self):
-        if self._last_bar_timestamp != self.trade.barfeed.last_bar.timestamp:
+        if not self._barfeed or self._barfeed.last_valid_bar.timestamp != self.trade.barfeed.last_valid_bar.timestamp:
             self._barfeed = self.trade.barfeed
-            self._last_bar_timestamp = self.trade.barfeed.latest_bar.timestamp
         return self._barfeed
 
     @property
@@ -101,10 +101,6 @@ class BaseStrategy(ABC):
     @property
     def bar_time_gap(self):
         return self.trade.bar_time_gap
-
-    @property
-    def last_refresh_timestamp(self):
-        return self.trade.last_refresh_timestamp
 
     @property
     def bars(self):
@@ -171,8 +167,8 @@ class BaseStrategy(ABC):
 
         if self.pending_regular_order:
             self.cancel_order(self.pending_regular_order)
-            time.sleep(
-                5 if self.is_live else 0)  # wait 5 seconds (or some time) for cancelling request to be processed by the broker
+            # wait 5 seconds (or some time) for cancelling request to be processed by the broker
+            time.sleep(5 if self.is_live else 0)
             self.update_pending_orders(is_multiple_update=False)
 
         if self.pending_regular_order:
@@ -185,8 +181,8 @@ class BaseStrategy(ABC):
     def post_next(self):
         # print(f'is live: {self.is_live}')
         if self.is_live:
-            update_times = (self.bar_time_gap / 60) + 1
-            self.update_pending_orders(is_multiple_update=True, update_reps=update_times)
+            update_times = int(self.bar_time_gap / 60)
+            self.update_pending_orders(is_multiple_update=True, update_reps=update_times, buffer_seconds=5)
 
         else:
             self.update_pending_orders(is_multiple_update=False)
@@ -225,7 +221,7 @@ class BaseStrategy(ABC):
                 submitted_order = self.broker.market_buy(order=market_buy_order)
 
             self._submitted_orders[submitted_order.broker_ref_id] = submitted_order
-            self.notify_order(order=submitted_order)
+            return submitted_order
 
     def sell(self, islimit: bool, ref_price=None, size=None, limit_price=None):
 
@@ -265,7 +261,7 @@ class BaseStrategy(ABC):
                 submitted_order = self.broker.market_sell(order=market_sell_order)
 
             self._submitted_orders[submitted_order.broker_ref_id] = submitted_order
-            self.notify_order(order=submitted_order)
+            return submitted_order
 
     def stoploss(self, isstoplimit: bool, stop_price: float, ref_price=None, size=None, limit_price=None):
 
@@ -301,24 +297,32 @@ class BaseStrategy(ABC):
                 submitted_stp = self.broker.stop_loss(order=stop_order)
 
             self._submitted_orders[submitted_stp.broker_ref_id] = submitted_stp
-            self.notify_order(order=submitted_stp)
+            return submitted_stp
 
     def update_pending_orders(self, is_multiple_update: bool, ref_price: float = 0.0,
-                              next_refresh_ratio: float = 0.9, update_reps: int = 5):
+                              buffer_seconds: int = 0, update_reps: int = 0):
 
         ref_price = ref_price if ref_price else self.bars[0].close
 
         if self.broker.pending_orders:
 
             if is_multiple_update:
+                if not update_reps:
+                    raise TypeError(f"{self.update_pending_orders.__name__}() missing 1 "
+                                    f"required positional argument: 'update_reps'")
 
-                wait_duration = round(self.bar_time_gap * next_refresh_ratio)
-                order_update_deadline = self.last_refresh_timestamp + wait_duration
-                wait_time = math.floor(wait_duration / update_reps)
+                if not buffer_seconds:
+                    raise TypeError(f"{self.update_pending_orders.__name__}() missing 1 "
+                                    f"required positional argument: 'buffer_seconds'")
+
+                # buffer another second for each reps
+                total_wait_duration = self.market_hour.seconds_to_next_bar - buffer_seconds - 1 * update_reps
+
+                wait_time = math.floor(total_wait_duration / update_reps)
 
                 update_count = 0
-                while datetime.datetime.now().timestamp() < order_update_deadline and update_count <= update_reps:
-                    time.sleep(wait_time)
+                while self.market_hour.seconds_to_next_bar > buffer_seconds and update_count <= update_reps:
+                    time.sleep(wait_time if self.is_live else 0)
                     self.broker.update_pending_orders(ref_price=ref_price)
                     self.monitor_and_notify()
                     if not self.pending_regular_order:
@@ -375,7 +379,8 @@ class BaseStrategy(ABC):
         ref_price = ref_price if ref_price else self.bars[0].close
 
         if not stop_price:
-            # print(f'current ref price {ref_price} vs stop lastest ref_price {self.stp_pricer.latest_ref_price} vs stop price {self.stp_pricer.latest_stop_price}')
+            # print(f'current ref price {ref_price} vs stop lastest ref_price {self.stp_pricer.latest_ref_price}
+            # vs stop price {self.stp_pricer.latest_stop_price}')
             price_dict = self.stp_pricer.get_stop_limit_prices(ref_price=ref_price)
             # print(price_dict)
             if price_dict:
@@ -401,65 +406,82 @@ class BaseStrategy(ABC):
 
         self.stoploss(isstoplimit=isstoplimit, stop_price=stop_price, limit_price=limit_price, ref_price=ref_price)
 
+    def setup(self):
+        # IMPORTANT: This line helps to avoid AttributeError: 'NoneType' of barfeed - when running prepare() method
+        if self.barfeed:
+            self.prepare()
+            self._bars = next(self.barfeed)
+
+    # DIVIDER: Notifying Methods -----------------------------------
     def notify_order(self, order: Union[RegularOrder, StopOrder]):
         # 1. If order is submitted do nothing
         if not order.is_settled():
-            print(f'An order has been {order.status}.\n'
-                  f'Order details: {order}')
+            _ord_action = 'BUY' if order.isbuy else 'SELL'
+            _stop_price = f', StopPrice: {order.stop_price}.' if order.is_stop_order() else '.'
+            _common_str = f'Ticker: {order.trading_symbol}, OrderType: {order.type.upper()}, ' \
+                          f'RefPrice: {order.ref_price}, Quantity: {order.size}{_stop_price}, ' \
+                          f'OrderStatus: {order.status}, CreatedAt: {order.created_at}'
+
+            ord_msg = f'{_ord_action} ORDER SUBMITTED ({self.buy_count}/{self.trade.reps_limit}) - {_common_str}'
 
         # 2. If order is buy/sell executed, report price executed
         elif order.is_filled():
+            _common_str = f'Ticker: {order.trading_symbol}, OrderType: {order.type.upper()}, ' \
+                          f'FilledPrice: {order.filled_price}, Quantity: {order.fill_quantity}, ' \
+                          f'Cost: {order.transaction_value}, Comm: {order.commission_fee}, ' \
+                          f'OrderStatus: {order.status}, CreatedAt: {order.created_at}'
+
             if order.isbuy:
-                print(f'BUY EXECUTED, Price: {order.filled_price}, Cost: {order.transaction_value}, '
-                      f'Quantity: {order.fill_quantity}, Comm: {order.commission_fee}.\n'
-                      f'BUY COUNT {self.buy_count}/{self.trade.reps_limit}.\n'
-                      f'Order details: {order}')
+                ord_msg = f'BUY EXECUTED ({self.buy_count}/{self.trade.reps_limit}) - {_common_str}'
+
             else:
-                print(f'SELL EXECUTED, Price: {order.filled_price}, Revenue: {order.transaction_value}, '
-                      f'Quantity: {order.fill_quantity}, Comm: {order.commission_fee}.\n'
-                      f'SELL COUNT {self.sell_count}/{self.trade.reps_limit}\n'
-                      f'Order details: {order}')
+                ord_msg = f'SELL EXECUTED ({self.buy_count}/{self.trade.reps_limit}) - {_common_str}'
 
         # 3. If order is canceled/margin/rejected, report order canceled
         else:
-            print(f'An order has been {order.status}.\n'
-                  f'Order details: {order}')
+            _ord_action = 'BUY' if order.isbuy else 'SELL'
+            _common_str = f'Ticker: {order.trading_symbol}, OrderType: {order.type.upper()}, ' \
+                          f'OrderStatus: {order.status}, CreatedAt: {order.created_at}'
+
+            ord_msg = f'{_ord_action} ORDER DISCARDED ({self.buy_count}/{self.trade.reps_limit}) - {_common_str}'
+            ColorPrinter.pr_blue(ord_msg)
+
+        ColorPrinter.pr_cyan(ord_msg)
+        if 'order' in self.trade.to_notify:
+            self.trade.logger.send_notification(message=ord_msg, tag='order')
 
     def notify_trade(self, ref_price: float = 0.0):
         ref_price = ref_price if ref_price else self.bars[0].close
 
         realized = self.gl_tracker.realized_gain_loss
         unrealized = self.gl_tracker.estimate_unrealized_gls(market_price=ref_price)
-        if realized > 0:
-            realized_text = 'GAIN'
-        else:
-            realized_text = 'LOSS'
 
-        if unrealized > 0:
-            unrealized_text = 'GAIN'
-        else:
-            unrealized_text = 'LOSS'
+        realized_text = 'GAIN' if realized > 0 else 'LOSS'
+        unrealized_text = 'GAIN' if unrealized > 0 else 'LOSS'
 
-        print(f'OPERATION REALIZED {realized_text} of {realized} and UNREALIZED {unrealized_text} of {unrealized}')
+        bs_count = f'Buy {self.buy_count} - Sell {self.sell_count} of {self.trade.reps_limit} trade(s)'
+        trade_msg = f'OPERATION REALIZED {realized_text} of {realized} and ' \
+                    f'UNREALIZED {unrealized_text} of {unrealized}. {bs_count}'
 
-    def notify_signal(self, signal: Signal):
+        ColorPrinter.pr_green(trade_msg)
+        if 'trade' in self.trade.to_notify:
+            self.trade.logger.send_notification(message=trade_msg, tag='trade')
+
+    def notify_signal(self, signal: Signal, is_final: bool = False):
         if signal.is_up:
-            print(f'{signal.sequence.upper()} {"BUY" if signal.isbuy else "SELL"} SIGNAL IS UP, '
-                  f'Sequential: {signal.sequential}, DateTime: {signal.signal_up_datetime}, '
-                  f'Codename: {signal.codename}, PriceAtSignal: {signal.price_at_signal}, '
-                  f'IndicatorValueAtSignal: {signal.indicator_value_at_signal}, Notes: '
-                  f'{signal.notes}.\n'
-                  f'PENDING ORDER: {self.pending_regular_order}\n'
-                  f'POSITION: {self.position}')
+            _interim_or_final = 'FINAL' if is_final else 'INTERIM'
+            _buy_or_sell = 'BUY' if signal.isbuy else 'SELL'
+            _common_str = f'DateTime: {signal.signal_up_datetime}, Codename: {signal.codename}, ' \
+                          f'Price@Signal: {signal.signal_up_price}, ' \
+                          f'IndicatorValue: {signal.signal_up_indicator_value}, Note: {signal.note}. '
+            _position = f'POSITION: {self.position.size} share(s) of {self.position.ticker_symbol}'
+            singal_msg = f'{_interim_or_final} {_buy_or_sell} signal is UP. {_position}. {_common_str}'
 
-    def setup(self):
-        # IMPORTANT: This line helps to avoid AttributeError: 'NoneType' of barfeed - when running prepare() method
-        if not self._last_bar_timestamp:
-            self._barfeed = self.trade.barfeed
+            ColorPrinter.pr_purple(singal_msg)
+            if 'signal' in self.trade.to_notify:
+                self.trade.logger.send_notification(message=singal_msg, tag='signal')
 
-        self.prepare()
-        self._bars = next(self.barfeed)
-
+    # DIVIDER: Class Private Methods -----------------------------------
     def _getsizing(self, isbuy=True, ref_price=None):
         # TODO: (1): Implement isbuy check for False
         # TODO: (2): Implement isbuy check for ref_price (if broker buy_power sufficient)

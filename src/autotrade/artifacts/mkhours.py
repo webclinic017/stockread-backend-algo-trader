@@ -2,20 +2,34 @@
 # Author: Thanh Tung Nguyen
 # Contact: tungstudies@gmail.com
 
-import pytz
 import datetime
+
 import pandas_market_calendars as mcal
+import pytz
+
+from src.autotrade.artifacts.enums import IntervalOption
+from src.errors import ValueNotPresentException
+import math
 
 
 # DIVIDER: --------------------------------------
 # INFO: MarketHour Concrete Class
 
+
 class MarketHour:
 
-    def __init__(self, exchange: str):
+    def __init__(self, exchange: str, interval_option: str):
+
+        # INFO: Constructor Input Parameter Check
+        if interval_option.lower() not in IntervalOption.interval_options():
+            raise ValueNotPresentException(provided_value=interval_option.lower(),
+                                           value_list=IntervalOption.interval_options())
+
         self.exchange = exchange
         self._exch: mcal.MarketCalendar = mcal.get_calendar(self.exchange)
         self._local_tz = self._exch.tz.zone
+        self._interval_option = IntervalOption.get_interval(interval_option=interval_option)
+        self._bar_gap_seconds = self._interval_option.value[1]
 
     # DIVIDER: Publicly Accessible Method Properties ----------------------------------------------
     @property
@@ -62,10 +76,27 @@ class MarketHour:
         else:
             return False
 
+    @property
+    def bar_gap_seconds(self):
+        return self._bar_gap_seconds
+
+    @property
+    def bar_zero_timestamp(self):
+        if datetime.datetime.now().timestamp() >= self.close_timestamp:
+            return int(self.close_timestamp)
+        else:
+            time_diff = datetime.datetime.now().timestamp() - self.open_timestamp
+            return int(self.open_timestamp + math.floor(time_diff / self._bar_gap_seconds) * self._bar_gap_seconds)
+
+    @property
+    def seconds_to_next_bar(self):
+        return self.bar_zero_timestamp + self._bar_gap_seconds - datetime.datetime.now().timestamp()
+
 
 # DIVIDER: --------------------------------------
 # INFO: Usage Examples
 
 if __name__ == '__main__':
-    market_hour = MarketHour(exchange='NYSE')
+    market_hour = MarketHour(exchange='NYSE', interval_option='5m')
+    print(market_hour.bar_zero_timestamp())
     pass

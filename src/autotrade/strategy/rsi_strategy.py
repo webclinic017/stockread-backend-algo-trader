@@ -1,99 +1,143 @@
 import math
 
 from ta.momentum import RSIIndicator
-from ta.trend import IchimokuIndicator
-from ta.volatility import BollingerBands
 
 from src.autotrade.indicator.insignal import IndicatorSignal
 from src.autotrade.signal.signal import Signal
 from src.autotrade.strategy.base_strategy import BaseStrategy
 
 
-class RSICloudBollStrategy(BaseStrategy):
+class RSIStrategy(BaseStrategy):
 
     def __init__(self):
 
         super().__init__()
-        self.rsi_buy_signal = Signal(isbuy=True, codename='RSIBuy', sequence='first')
-        self.mband_buy_signal = Signal(isbuy=True, codename='MiddleBBBuy', sequence='last',
-                                       leading_dependent_signal=self.rsi_buy_signal)
-        self.hband_sell_signal = Signal(isbuy=False, codename='BollHBandSell', sequence='first')
-        self.mband_sell_signal = Signal(isbuy=False, codename='MiddleBBSell', sequence='last',
-                                        leading_dependent_signal=self.hband_sell_signal)
+        self.rsi_buy_signal = Signal(isbuy=True, codename='RSIBuy', sequence='only')
+        self.rsi_sell_signal = Signal(isbuy=False, codename='RSISell', sequence='only')
 
     def prepare(self):
-        self._barfeed.add_fields(rsi=RSIIndicator(self._barfeed.close).rsi())
-        self._barfeed.add_fields(bollinger_hband=BollingerBands(self._barfeed.close).bollinger_hband())
-        self._barfeed.add_fields(bollinger_lband=BollingerBands(self._barfeed.close).bollinger_lband())
-        self._barfeed.add_fields(bollinger_mavg=BollingerBands(self._barfeed.close).bollinger_mavg())
-        self._barfeed.add_fields(
-            tenkan=IchimokuIndicator(self._barfeed.high, self._barfeed.low, fillna=True).ichimoku_conversion_line())
-        self._barfeed.add_fields(rsi_uphit_70=IndicatorSignal(self._barfeed.frame['rsi']).is_up_hit(70))
-        self._barfeed.add_fields(rsi_downhit_25=IndicatorSignal(self._barfeed.frame['rsi']).is_down_hit(25))
-        self._barfeed.add_fields(
-            price_upcross_mband=IndicatorSignal(self._barfeed.close).cross_up(self._barfeed.frame['bollinger_mavg']))
-        self._barfeed.add_fields(
-            price_downcross_mband=IndicatorSignal(self._barfeed.close).cross_down(
-                self._barfeed.frame['bollinger_mavg']))
-        self._barfeed.add_fields(price_downcross_hband=IndicatorSignal(self._barfeed.close).cross_down(
-            self._barfeed.frame['bollinger_hband']))
+        self._barfeed.add_fields(rsi=RSIIndicator(self._barfeed.close, window=14, fillna=True).rsi())
+        self._barfeed.add_fields(rsi_downhit_70=IndicatorSignal(self._barfeed.frame['rsi']).is_down_hit(70))
+        self._barfeed.add_fields(rsi_uphit_25=IndicatorSignal(self._barfeed.frame['rsi']).is_up_hit(25))
 
     def print_bar(self):
-        if not math.isnan(self.bars[0].rsi):
-            print(
-                f'>>>> {self.bars[0].datetime} >>>> {self.bars[0].close} >>>> {self.bars[0].rsi} >>> {self.bars[0].price_upcross_mband} ')
+        if not math.isnan(self.bars[0].close):
+            print(f'>>>> {self.bars[0]} <<<<')
 
     def next(self):
+        is_to_run = False
+        if is_to_run:
+            if abs(self.bars[0].rsi_downhit_70) == 1:
+                self.rsi_sell_signal.set_note(note_id_name='RSIDownHit70', note_desc='RSI downhits 70')
+                if self.position.has_position():
+                    self.rsi_sell_signal.up_signal(ref_bar=self.bars[0], ref_indicator_value={'rsi': self.bars[0].rsi})
+                    self.notify_signal(self.rsi_sell_signal)
 
-        if abs(self.bars[0].rsi_downhit_25) == 1:
-            self.rsi_buy_signal.upsert_notes(note_id_name='RSIDownHit25', note_desc='RSI down hits 25')
-            if not self.position.has_position():
-                self.rsi_buy_signal.up_signal(ref_bar=self.bars[0], ref_indicator_value={'rsi': self.bars[0].rsi})
-                # print(f'rsi: {rsi_buy_signal.is_up} vs tenkan: {tenkan_buy_signal.is_up}')
-                self.notify_signal(self.rsi_buy_signal)
+            if abs(self.bars[0].rsi_uphit_25) == 1:
+                self.rsi_buy_signal.set_note(note_id_name='RSIUpHit25', note_desc='RSI uphits 70')
+                if not self.position.has_position():
+                    self.rsi_buy_signal.up_signal(ref_bar=self.bars[0], ref_indicator_value={'rsi': self.bars[0].rsi})
+                    self.notify_signal(self.rsi_buy_signal)
 
-        if abs(self.bars[0].price_upcross_mband) == 1:
-            if not self.position.has_position():
-                self.mband_buy_signal.up_signal(ref_bar=self.bars[0],
-                                                ref_indicator_value={'tenkan': self.bars[0].tenkan})
-
-                self.notify_signal(self.mband_buy_signal)
-
-        if abs(self.bars[0].price_downcross_hband) == 1:
-            self.hband_sell_signal.upsert_notes(note_id_name='PriceDownCressHBand',
-                                                note_desc='Price down crosses High BB')
-            if self.position.has_position():
-                self.hband_sell_signal.up_signal(ref_bar=self.bars[0],
-                                                 ref_indicator_value={'hband': self.bars[0].bollinger_hband})
-                self.notify_signal(self.hband_sell_signal)
-
-        if abs(self.bars[0].price_downcross_mband) == 1:
-            self.mband_sell_signal.upsert_notes(note_id_name='PriceDownCrossTenkan',
-                                                note_desc='Price down crosses Tenkan')
-            if self.position.has_position():
-                self.mband_sell_signal.up_signal(ref_bar=self.bars[0],
-                                                 ref_indicator_value={'tenkan': self.bars[0].tenkan})
-                self.notify_signal(self.mband_sell_signal)
-
-        if self.mband_sell_signal.is_up:
-            if not self.position.has_position():
+            if self.rsi_buy_signal.is_up:
                 self.buy(islimit=False, ref_price=self.bars[0].close)
-                self.rsi_buy_signal.down_signal()
                 self.update_pending_orders(is_multiple_update=False)
-            if self.position.has_position():
-                prices = self.stp_pricer.get_stop_limit_prices(ref_price=self.bars[0].close, is_to_trail=False)
+                # if self.position.has_position():
+                #     prices = self.stp_pricer.get_stop_limit_prices(ref_price=self.bars[0].close, is_to_trail=False)
+                #
+                #     if prices:
+                #         self.stoploss(isstoplimit=True, stop_price=prices['stop_price'],
+                #                       ref_price=self.bars[0].close, limit_price=prices['limit_price'])
+                #         self.stp_pricer.set_trailing(ref_price=self.bars[0].close, stop_price=prices['stop_price'])
 
-                if prices:
-                    self.stoploss(isstoplimit=True, stop_price=prices['stop_price'],
-                                  ref_price=self.bars[0].close, limit_price=prices['limit_price'])
-                    self.stp_pricer.set_trailing(ref_price=self.bars[0].close, stop_price=prices['stop_price'])
+            # if self.position.has_position():
+            #     self.trail_stoploss(isstoplimit=True)
 
-        if self.position.has_position():
-            self.trail_stoploss(isstoplimit=True)
-
-        if self.mband_sell_signal.is_up:
-            if self.position.has_position():
+            if self.rsi_sell_signal.is_up:
                 self.sell(islimit=False, ref_price=self.bars[0].close)
+
+    # def __init__(self):
+    #
+    #     super().__init__()
+    #     self.lowband_buy_signal = Signal(isbuy=True, codename='MiddleBBBuy', sequence='only')
+    #     self.middleband_sell_signal = Signal(isbuy=False, codename='MiddleBBSell', sequence='first')
+    #     self.hband_sell_signal = Signal(isbuy=False, codename='BollHBandSell', sequence='last', leading_dependent_signal=self.hband_sell_signal)
+    #
+    #
+    # def prepare(self):
+    #     self._barfeed.add_fields(rsi=RSIIndicator(self._barfeed.close).rsi())
+    #     self._barfeed.add_fields(bollinger_hband=BollingerBands(self._barfeed.close).bollinger_hband())
+    #     self._barfeed.add_fields(bollinger_lband=BollingerBands(self._barfeed.close).bollinger_lband())
+    #     self._barfeed.add_fields(bollinger_mavg=BollingerBands(self._barfeed.close).bollinger_mavg())
+    #     self._barfeed.add_fields(
+    #         tenkan=IchimokuIndicator(self._barfeed.high, self._barfeed.low, fillna=True).ichimoku_conversion_line())
+    #     self._barfeed.add_fields(rsi_uphit_70=IndicatorSignal(self._barfeed.frame['rsi']).is_up_hit(70))
+    #     self._barfeed.add_fields(rsi_downhit_25=IndicatorSignal(self._barfeed.frame['rsi']).is_down_hit(25))
+    #     self._barfeed.add_fields(
+    #         price_upcross_mband=IndicatorSignal(self._barfeed.close).cross_up(self._barfeed.frame['bollinger_mavg']))
+    #     self._barfeed.add_fields(
+    #         price_downcross_mband=IndicatorSignal(self._barfeed.close).cross_down(
+    #             self._barfeed.frame['bollinger_mavg']))
+    #     self._barfeed.add_fields(price_downcross_hband=IndicatorSignal(self._barfeed.close).cross_down(
+    #         self._barfeed.frame['bollinger_hband']))
+    #
+    # def print_bar(self):
+    #     if not math.isnan(self.bars[0].rsi):
+    #         print(
+    #             f'>>>> {self.bars[0].datetime} >>>> {self.bars[0].close} >>>> {self.bars[0].rsi} >>> {self.bars[0].price_upcross_mband} ')
+    #
+    # def next(self):
+    #
+    #     if abs(self.bars[0].rsi_downhit_25) == 1:
+    #         self.rsi_buy_signal.upsert_notes(note_id_name='RSIDownHit25', note_desc='RSI down hits 25')
+    #         if not self.position.has_position():
+    #             self.rsi_buy_signal.up_signal(ref_bar=self.bars[0], ref_indicator_value={'rsi': self.bars[0].rsi})
+    #             # print(f'rsi: {rsi_buy_signal.is_up} vs tenkan: {tenkan_buy_signal.is_up}')
+    #             self.notify_signal(self.rsi_buy_signal)
+    #
+    #     if abs(self.bars[0].price_upcross_mband) == 1:
+    #         if not self.position.has_position():
+    #             self.mband_buy_signal.up_signal(ref_bar=self.bars[0],
+    #                                             ref_indicator_value={'tenkan': self.bars[0].tenkan})
+    #
+    #             self.notify_signal(self.mband_buy_signal)
+    #
+    #
+    #     if abs(self.bars[0].price_downcross_hband) == 1:
+    #         self.hband_sell_signal.upsert_notes(note_id_name='PriceDownCressHBand',
+    #                                             note_desc='Price down crosses High BB')
+    #         if self.position.has_position():
+    #             self.hband_sell_signal.up_signal(ref_bar=self.bars[0],
+    #                                              ref_indicator_value={'hband': self.bars[0].bollinger_hband})
+    #             self.notify_signal(self.hband_sell_signal)
+    #
+    #     if abs(self.bars[0].price_downcross_mband) == 1:
+    #         self.mband_sell_signal.upsert_notes(note_id_name='PriceDownCrossTenkan',
+    #                                             note_desc='Price down crosses Tenkan')
+    #         if self.position.has_position():
+    #             self.mband_sell_signal.up_signal(ref_bar=self.bars[0],
+    #                                              ref_indicator_value={'tenkan': self.bars[0].tenkan})
+    #             self.notify_signal(self.mband_sell_signal)
+    #
+    #     if self.mband_sell_signal.is_up:
+    #         if not self.position.has_position():
+    #             self.buy(islimit=False, ref_price=self.bars[0].close)
+    #             self.rsi_buy_signal.down_signal()
+    #             self.update_pending_orders(is_multiple_update=False)
+    #         if self.position.has_position():
+    #             prices = self.stp_pricer.get_stop_limit_prices(ref_price=self.bars[0].close, is_to_trail=False)
+    #
+    #             if prices:
+    #                 self.stoploss(isstoplimit=True, stop_price=prices['stop_price'],
+    #                               ref_price=self.bars[0].close, limit_price=prices['limit_price'])
+    #                 self.stp_pricer.set_trailing(ref_price=self.bars[0].close, stop_price=prices['stop_price'])
+    #
+    #     if self.position.has_position():
+    #         self.trail_stoploss(isstoplimit=True)
+    #
+    #     if self.mband_sell_signal.is_up:
+    #         if self.position.has_position():
+    #             self.sell(islimit=False, ref_price=self.bars[0].close)
 
 
 '''

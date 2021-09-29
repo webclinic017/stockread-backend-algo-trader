@@ -1,7 +1,7 @@
 # Copyright (C) 2021-2030 StockRead Inc.
 # Author: Thanh Tung Nguyen
 # Contact: tungstudies@gmail.com
-
+from abc import ABC, abstractmethod
 from typing import Optional, Union, Dict
 
 from src.autotrade.bars.bar import Bar
@@ -10,9 +10,98 @@ from src.errors import DependentSignalConflict, ValueNotPresentException, Signal
 
 
 # DIVIDER: --------------------------------------
+# INFO: ISignalChaining Interface (SignalChaining - Interface)
+
+class ISignalChaining(ABC):
+
+    @abstractmethod
+    def is_trailing_dependent_required(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_leading_dependent_required(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_trailing_dependent_attached(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_first(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_last(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_only(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def is_middle(self):
+        raise NotImplementedError()
+
+
+# DIVIDER: --------------------------------------
+# INFO: ISignal Interface (Signal - Interface)
+
+class ISignal(ABC):
+
+    @property
+    @abstractmethod
+    def isbuy(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def is_up(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def is_down(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def signal_up_price(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def signal_up_timestamp(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def signal_up_datetime(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def signal_up_volume(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def signal_up_bar(self):
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def signal_up_indicator_value(self):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def down_signal(self):
+        raise NotImplementedError()
+
+
+# DIVIDER: --------------------------------------
 # INFO: Signal Concrete Class
 
-class Signal:
+class Signal(ISignal):
 
     def __init__(self, isbuy: bool, codename: str, sequence: str,
                  sequence_types: tuple = ('only', 'first', 'middle', 'last'), leading_dependent_signal=None):
@@ -23,7 +112,7 @@ class Signal:
         self._isbuy = isbuy
         self._codename = codename
         self._sequence = sequence
-        self._notes = dict()
+        self._note: Optional[str] = None
 
         if not self.is_leading_dependent_required():
             self._sequential = 1
@@ -45,11 +134,12 @@ class Signal:
             self._trailing_dependent_signal: Union[Signal, None] = None
 
         self._is_up: Optional[bool] = None
+        self._signal_up_bar: Optional[Bar] = None
         self._signal_up_timestamp: Optional[int] = None
         self._signal_up_datetime: Optional[str] = None
-        self._price_at_signal: Optional[float] = None
-        self._volume_at_signal: Optional[int] = None
-        self._indicator_value_at_signal = None
+        self._signal_up_price: Optional[float] = None
+        self._signal_up_volume: Optional[int] = None
+        self._signal_up_indicator_value = None
 
     # DIVIDER: Required Class Construction Methods --------------------------------------------------------
 
@@ -65,8 +155,8 @@ class Signal:
         tojoin.append('IsTrailingDependentAttached: {}'.format(self.is_trailing_dependent_required()))
         tojoin.append('IsSignalUp: {}'.format(self._is_up))
         tojoin.append('SignalUpTimestamp: {}'.format(self._signal_up_timestamp))
-        tojoin.append('PriceAtSignal: {}'.format(self._price_at_signal))
-        tojoin.append('IndicatorValueAtSignal: {}'.format(self._indicator_value_at_signal))
+        tojoin.append('PriceAtSignal: {}'.format(self._signal_up_price))
+        tojoin.append('IndicatorValueAtSignal: {}'.format(self._signal_up_indicator_value))
 
         return ', '.join(tojoin)
 
@@ -95,32 +185,12 @@ class Signal:
         return self._codename
 
     @property
-    def notes(self):
-        return self._notes
+    def note(self):
+        return self._note
 
     @property
     def sequence(self):
         return self._sequence
-
-    @property
-    def signal_up_timestamp(self):
-        return self._signal_up_timestamp
-
-    @property
-    def signal_up_datetime(self):
-        return self._signal_up_datetime
-
-    @property
-    def price_at_signal(self):
-        return self._price_at_signal
-
-    @property
-    def volume_at_signal(self):
-        return self._volume_at_signal
-
-    @property
-    def indicator_value_at_signal(self):
-        return self._indicator_value_at_signal
 
     @property
     def isbuy(self):
@@ -135,6 +205,48 @@ class Signal:
                 raise MissingDependentSignalError(signal_type='leading')
         else:
             return self._is_up
+
+    @property
+    def is_down(self):
+        return not self.is_up()
+
+    @property
+    def signal_up_bar(self):
+        return self._signal_up_bar
+
+    @property
+    def signal_up_timestamp(self):
+        return self._signal_up_timestamp
+
+    @property
+    def signal_up_datetime(self):
+        return self._signal_up_datetime
+
+    @property
+    def signal_up_price(self):
+        return self._signal_up_price
+
+    @property
+    def signal_up_volume(self):
+        return self._signal_up_volume
+
+    @property
+    def signal_up_indicator_value(self):
+        return self._signal_up_indicator_value
+
+    # DIVIDER: Publicly Accessible Setters --------------------------------------------------------
+
+    def set_codename(self, codename: str):
+        self._codename = codename
+
+    def set_note(self, note: str):
+        self._note = note
+
+    def set_sequential(self, sequential: int):
+        if self.is_only():
+            self._sequential = sequential
+        else:
+            raise Exception('DependentSignalSequentialException: Sequential of dependent signal is not settable')
 
     # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
 
@@ -169,9 +281,9 @@ class Signal:
         self._is_up = True
         self._signal_up_timestamp = ref_bar.timestamp
         self._signal_up_datetime = ref_bar.datetime
-        self._price_at_signal = ref_bar.close
-        self._volume_at_signal = ref_bar.volume
-        self._indicator_value_at_signal = ref_indicator_value
+        self._signal_up_price = ref_bar.close
+        self._signal_up_volume = ref_bar.volume
+        self._signal_up_indicator_value = ref_indicator_value
 
         if self.is_leading_dependent_required():
             if self._leading_dependent_signal:
@@ -182,11 +294,12 @@ class Signal:
 
     def down_signal(self):
         self._is_up = False
+        self._signal_up_bar = None
         self._signal_up_timestamp = None
         self._signal_up_datetime = None
-        self._price_at_signal = None
-        self._volume_at_signal = None
-        self._indicator_value_at_signal = None
+        self._signal_up_price = None
+        self._signal_up_volume = None
+        self._signal_up_indicator_value = None
 
         if self.is_trailing_dependent_required():
             if self._trailing_dependent_signal:
@@ -194,20 +307,12 @@ class Signal:
             else:
                 raise MissingDependentSignalError(signal_type='trailing')
 
-    def set_codename(self, codename: str):
-        self._codename = codename
-
-    def upsert_notes(self, note_id_name: str, note_desc: str):
-        if note_id_name in self.notes:
-            self._notes[note_id_name] = note_desc
-        else:
-            self._notes[note_id_name] = note_desc
-
 
 # DIVIDER: --------------------------------------
 # INFO: SignalSet Concrete Class
 
-class SignalSet:
+class SignalSet(ISignal):
+
     def __init__(self, isbuy: bool, signal_count: int):
         # setup signal set
         self._isbuy = isbuy
@@ -215,6 +320,10 @@ class SignalSet:
         self._signal_dict: Dict[int, Signal] = dict()
 
     # DIVIDER: Publicly Accessible Method Properties ----------------------------------------------
+
+    @property
+    def isbuy(self):
+        return self._isbuy
 
     @property
     def signal_count(self):
@@ -248,20 +357,48 @@ class SignalSet:
         return self._signal_dict[self._signal_count]
 
     @property
-    def allup_timestamp(self):
-        return self.last_signal.signal_up_timestamp
+    def is_down(self):
+        return len([sgn for sgn in self._signal_dict.values() if not sgn.is_up]) == self.signal_count
 
     @property
-    def allup_price(self):
-        return self.last_signal.price_at_signal
+    def is_up(self):
+        return len([sgn for sgn in self._signal_dict.values() if sgn.is_up]) == self.signal_count
 
     @property
-    def allup_volume(self):
-        return self.last_signal.volume_at_signal
+    def signal_up_bar(self):
+        allup_info = self._get_allup_info()
+        if allup_info:
+            return allup_info['allup_bar']
 
     @property
-    def allup_datetime(self):
-        return self.last_signal.signal_up_datetime
+    def signal_up_timestamp(self):
+        allup_info = self._get_allup_info()
+        if allup_info:
+            return allup_info['allup_timestamp']
+
+    @property
+    def signal_up_price(self):
+        allup_info = self._get_allup_info()
+        if allup_info:
+            return allup_info['allup_price']
+
+    @property
+    def signal_up_volume(self):
+        allup_info = self._get_allup_info()
+        if allup_info:
+            return allup_info['allup_volume']
+
+    @property
+    def signal_up_datetime(self):
+        allup_info = self._get_allup_info()
+        if allup_info:
+            return allup_info['allup_datetime']
+
+    @property
+    def signal_up_indicator_value(self):
+        allup_info = self._get_allup_info()
+        if allup_info:
+            return allup_info['allup_indicator_value']
 
     # DIVIDER: Publicly Accessible Methods --------------------------------------------------------
 
@@ -292,13 +429,38 @@ class SignalSet:
                 raise KeyError("The signal being removed does not exist")
 
     def down_signal(self):
-        self.fist_signal.down_signal()
+        for sgn in self._signal_dict.values():
+            if sgn.is_up:
+                sgn.down_signal()
 
-    def is_alldown(self):
-        return not self.fist_signal.is_up
+    def _get_allup_info(self):
+        signal_up_count = 0
+        allup_timestamp = 0
+        allup_price: float = 0.0
+        allup_volume: int = 0
+        allup_datetime = None
+        allup_indicator_value = None
+        allup_bar = None
 
-    def is_allup(self):
-        return self.last_signal.is_up
+        for sgn in self._signal_dict.values():
+            if sgn.is_up:
+                signal_up_count += 1
+                if sgn.signal_up_timestamp > allup_timestamp:
+                    allup_timestamp = sgn.signal_up_timestamp
+                    allup_price = sgn.signal_up_price
+                    allup_volume = sgn.signal_up_volume
+                    allup_datetime = sgn.signal_up_datetime
+                    allup_indicator_value = sgn.signal_up_indicator_value
+                    allup_bar = sgn.signal_up_bar
+
+        if signal_up_count == self.signal_count:
+            return {'is_allup': True,
+                    'greatest_timestamp': allup_timestamp,
+                    'allup_price': allup_price,
+                    'allup_volume': allup_volume,
+                    'allup_indicator_value': allup_indicator_value,
+                    'allup_bar': allup_bar,
+                    'allup_datetime': allup_datetime}
 
 
 # DIVIDER: --------------------------------------
@@ -309,13 +471,14 @@ if __name__ == '__main__':
     is_to_test_run = True
 
     if is_to_test_run:
-        first_signal = Signal(isbuy=True, codename='TheFirstSignal', sequence='first')
 
-        middle_signal = Signal(isbuy=True, codename='TheMiddleSignal', sequence='middle',
-                               leading_dependent_signal=first_signal)
+        rsi_buy_signal = Signal(isbuy=True, codename='RSIBuy', sequence='only')
+        mfi_buy_signal = Signal(isbuy=True, codename='MFIBuy', sequence='only')
 
-        last_signal = Signal(isbuy=True, codename='TheLastSignal', sequence='last',
-                             leading_dependent_signal=middle_signal)
+        mfi_buy_signal.set_sequential(sequential=2)
+
+        sgnl_set = SignalSet(isbuy=True, signal_count=2)
+        sgnl_set.add_signals(rsi_buy_signal, mfi_buy_signal)
 
         first_bar_dict = {'timestamp': 1569297600,
                           'datetime': '9/24/2019, 12:00:00 AM',
@@ -353,23 +516,87 @@ if __name__ == '__main__':
 
         last_bar = Bar(bar_dict=last_bar_dict)
 
-        print(first_signal)
-        print(middle_signal)
-        print(last_signal)
+        print(rsi_buy_signal)
+        print(mfi_buy_signal)
 
-        sgnl_set = SignalSet(isbuy=True, signal_count=3)
-        sgnl_set.add_signals(first_signal, last_signal, middle_signal)
+        rsi_buy_signal.up_signal(ref_bar=first_bar, ref_indicator_value=29)
+        mfi_buy_signal.up_signal(ref_bar=middle_bar, ref_indicator_value=71)
 
-        first_signal.up_signal(ref_bar=first_bar, ref_indicator_value=29)
-        middle_signal.up_signal(ref_bar=middle_bar, ref_indicator_value=71)
-        last_signal.up_signal(ref_bar=last_bar, ref_indicator_value=31)
-
+        print(sgnl_set.fist_signal)
         print(sgnl_set.last_signal)
-        first_signal.up_signal(ref_bar=first_bar, ref_indicator_value=29)
         print(sgnl_set.signal_up_count)
-        print(sgnl_set.is_allup())
+        print(sgnl_set.is_up)
         sgnl_set.down_signal()
-        print(sgnl_set.is_alldown())
+        print(sgnl_set.is_down)
 
     else:
         pass
+
+    # is_to_test_run = True
+    #
+    # if is_to_test_run:
+    #
+    #     first_signal = Signal(isbuy=True, codename='TheFirstSignal', sequence='first')
+    #
+    #     middle_signal = Signal(isbuy=True, codename='TheMiddleSignal', sequence='middle',
+    #                            leading_dependent_signal=first_signal)
+    #
+    #     last_signal = Signal(isbuy=True, codename='TheLastSignal', sequence='last',
+    #                          leading_dependent_signal=middle_signal)
+    #
+    #     first_bar_dict = {'timestamp': 1569297600,
+    #                       'datetime': '9/24/2019, 12:00:00 AM',
+    #                       'open': 221.03,
+    #                       'high': 221.03,
+    #                       'low': 217.19,
+    #                       'close': 217.68,
+    #                       'volume': 33463820,
+    #                       'interval': '1d',
+    #                       'ticker_symbol': 'AAPL'}
+    #
+    #     first_bar = Bar(bar_dict=first_bar_dict)
+    #
+    #     middle_bar_dict = {'timestamp': 1569384000,
+    #                        'datetime': '9/25/2019, 12:00:00 AM',
+    #                        'open': 218.55,
+    #                        'high': 221.50,
+    #                        'low': 217.14,
+    #                        'close': 221.03,
+    #                        'volume': 24018876,
+    #                        'interval': '1d',
+    #                        'ticker_symbol': 'AAPL'}
+    #
+    #     middle_bar = Bar(bar_dict=middle_bar_dict)
+    #
+    #     last_bar_dict = {'timestamp': 1569470400,
+    #                      'datetime': '9/26/2019, 12:00:00 AM',
+    #                      'open': 220.13,
+    #                      'high': 220.94,
+    #                      'low': 218.83,
+    #                      'close': 219.89,
+    #                      'volume': 20730608,
+    #                      'interval': '1d',
+    #                      'ticker_symbol': 'AAPL'}
+    #
+    #     last_bar = Bar(bar_dict=last_bar_dict)
+    #
+    #     print(first_signal)
+    #     print(middle_signal)
+    #     print(last_signal)
+    #
+    #     sgnl_set = SignalSet(isbuy=True, signal_count=3)
+    #     sgnl_set.add_signals(first_signal, last_signal, middle_signal)
+    #
+    #     first_signal.up_signal(ref_bar=first_bar, ref_indicator_value=29)
+    #     middle_signal.up_signal(ref_bar=middle_bar, ref_indicator_value=71)
+    #     last_signal.up_signal(ref_bar=last_bar, ref_indicator_value=31)
+    #
+    #     print(sgnl_set.last_signal)
+    #     first_signal.up_signal(ref_bar=first_bar, ref_indicator_value=29)
+    #     print(sgnl_set.signal_up_count)
+    #     print(sgnl_set.is_allup())
+    #     sgnl_set.down_signal()
+    #     print(sgnl_set.is_alldown())
+    #
+    # else:
+    #     pass

@@ -169,12 +169,16 @@ class WSimpleConnection(metaclass=SingletonMeta):
 
 if __name__ == '__main__':
 
-    is_to_test_run = True
+    is_test_run = True
 
-    if is_to_test_run:
+    if is_test_run:
         wsimple_conn = WSimpleConnection()
         ws_access = wsimple_conn.auth
-        print(ws_access.find_securities(ticker='CGX', fuzzy=True))
+        # print(ws_access.find_securities(ticker='AC', fuzzy=True))
+        print(ws_access.get_activities(sec_id='sec-s-6e73535b8e474d8689064c4c9fee326a', account_id='tfsa-hyrnpbqo'))
+        # cts_ticker_id = 'sec-s-5d572b2d37f64d09b26fbb20ea5c1e34'
+        ac_ticker_id = 'sec-s-6e73535b8e474d8689064c4c9fee326a'
+        # print(ws_access.market_buy_order(ac_ticker_id, quantity=100, account_id='tfsa-hyrnpbqo'))
 
     else:
         pass

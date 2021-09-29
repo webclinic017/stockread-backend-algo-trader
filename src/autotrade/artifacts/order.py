@@ -5,37 +5,10 @@ import random
 import string
 import uuid
 from abc import ABC
-from enum import Enum
 from typing import Optional
 
-# DIVIDER: --------------------------------------
-# INFO: OrderStatus Enum
+from src.autotrade.artifacts.enums import OrderStatus, OrderType
 from src.errors import MissingOrderAttributeError
-
-
-class OrderStatus(Enum):
-    CREATED = 'CREATED'  # BaseOrder has been created at the trader end.
-    SUBMITTED = 'SUBMITTED'  # BaseOrder has been submitted.
-    ACCEPTED = 'ACCEPTED'  # BaseOrder has been acknowledged by the broker.
-    CANCELED = 'CANCELED'  # BaseOrder has been canceled.
-    PARTIALLY_FILLED = 'PARTIALLY_FILLED'  # BaseOrder has been partially filled.
-    FILLED = 'FILLED'  # BaseOrder has been completely filled.
-    EXPIRED = 'EXPIRED'  # BaseOrder has been expired.
-    REJECTED = 'REJECTED'  # BaseOrder has been rejected.
-
-    NEW = 'NEW'  # BaseOrder has been created at the broker end.
-    PENDING = 'PENDING'
-    OTHERS = 'OTHERS'
-
-
-# DIVIDER: --------------------------------------
-# INFO: OrderType Enum
-
-class OrderType(Enum):
-    MARKET = 'MARKET'  # Abbreviation: MKT (mkt)
-    LIMIT = 'LIMIT'  # Abbreviation: LMT (lmt)
-    STOP_LIMIT = 'STOP_LIMIT'  # Abbreviation: SLO (slo)
-    STOP = 'STOP'  # Abbreviation: STP (stp)
 
 
 # DIVIDER: --------------------------------------
@@ -81,7 +54,7 @@ class BaseOrder(ABC):
         tojoin.append('OrderAction: {}'.format('BUY' if self._isbuy else 'SELL'))
         tojoin.append('Status: {}'.format(self._status.value))
         tojoin.append('Size: {}'.format(self._size))
-        tojoin.append('ReferencePrice: {}'.format(self._ref_price))
+        tojoin.append('RefPrice: {}'.format(self._ref_price))
         tojoin.append('FilledPrice: {}'.format(self._filled_price))
         tojoin.append('FilledQuantity: {}'.format(self._fill_quantity))
         tojoin.append('OrderClientRefID: {}'.format(self._client_ref_id))

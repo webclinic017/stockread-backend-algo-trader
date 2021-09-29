@@ -26,7 +26,7 @@ if __name__ == "__main__":
     executors = {
         'default': ThreadPoolExecutor(20)
     }
-    scheduler = BlockingScheduler(max_instances=10)
+    scheduler = BlockingScheduler(max_instances=10, executors=executors)
 
     # The interval is set to 1 second, and you can also use minutes, hours, days, weeks, etc.
     intervalTrigger = IntervalTrigger(seconds=15)
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     #                   next_run_time=datetime.now().replace(hour=13, minute=43, second=00))
     scheduler.add_job(my_job, intervalTrigger, args=[5, 'job1'], id='my_job_id1', next_run_time=datetime.now())
     scheduler.add_job(my_job, intervalTrigger, args=[10, 'job2'], id='my_job_id2', next_run_time=datetime.now())
-    scheduler.add_job(shutdownjob, trigger='cron', hour='16', minute='52', args=[scheduler])
+    # scheduler.add_job(shutdownjob, trigger='cron', hour='16', minute='52', args=[scheduler])
     # next_run_time=datetime.utcnow().replace(hour=17, minute=37, second=00))
     scheduler.start()
 

@@ -13,7 +13,8 @@ import pandas as pd
 # INFO: PublicBase Abstract Class (YahooFinance Public API - BaseClass)
 
 class PublicBase:
-    def __init__(self, period=None, is_fromto: bool = False, start=None, end=None):
+    def __init__(self, ticker_symbol: str=None, interval_option: str=None,
+                 period=None, is_fromto: bool = False, start=None, end=None):
         self._range_type = is_fromto
         self._period = None
         self._start = None
@@ -26,8 +27,8 @@ class PublicBase:
         else:
             self._period = period
 
-        self._ticker_symbol = None
-        self._interval = None
+        self._ticker_symbol = ticker_symbol
+        self._interval_option = interval_option
         self._df_headers: Optional[List[str]] = None
 
     def set_dataframe_headers(self, df_headers: List[str]):
@@ -37,21 +38,21 @@ class PublicBase:
         number = number_of_bar_intervals
         minutes_per_day = 390
 
-        if self._interval == '1m':
+        if self._interval_option == '1m':
             minutes = number
-        elif self._interval == '2m':
+        elif self._interval_option == '2m':
             minutes = number * 2
-        elif self._interval == '5m':
+        elif self._interval_option == '5m':
             minutes = number * 5
-        elif self._interval == '15m':
+        elif self._interval_option == '15m':
             minutes = number * 15
-        elif self._interval == '30m':
+        elif self._interval_option == '30m':
             minutes = number * 30
-        elif self._interval == '1h':
+        elif self._interval_option == '1h':
             minutes = number * 60
-        elif self._interval == '4h':
+        elif self._interval_option == '4h':
             minutes = number * 60 * 4
-        elif self._interval == '1d':
+        elif self._interval_option == '1d':
             minutes = number * minutes_per_day
         else:
             raise ValueError('Invalid interval type')

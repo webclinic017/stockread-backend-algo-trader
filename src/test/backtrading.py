@@ -5,9 +5,9 @@ from df_data_test import df as test_df
 # Import the backtrader platform
 import backtrader as bt
 
-bt.Sizer
-bt.Order
-bt.BrokerBase
+# bt.Sizer
+# bt.Order
+# bt.BrokerBase
 
 # Create a Stratey
 class TestStrategy(bt.Strategy):
@@ -61,8 +61,8 @@ class TestStrategy(bt.Strategy):
 
 
 if __name__ == '__main__':
-    test_df.drop('timestamp', axis=1, inplace=True)
-    test_df.set_index('datetime', inplace=True)
+
+
 
     cerebro = bt.Cerebro()
     # Add a strategy

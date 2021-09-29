@@ -414,6 +414,7 @@ class Wsimple:
     def market_buy_order(
             self,
             security_id: str,
+            ref_price: float,
             tokens=None,
             quantity: int = 1,
             account_id: Optional[str] = None,
@@ -428,7 +429,7 @@ class Wsimple:
             return self._send_order(
                 {
                     "security_id": security_id,
-                    "limit_price": 1,
+                    "limit_price": ref_price,
                     "quantity": quantity,
                     "order_type": "buy_quantity",
                     "order_sub_type": "market",
@@ -513,6 +514,7 @@ class Wsimple:
     def market_sell_order(
             self,
             security_id: str,
+            ref_price: str,
             tokens=None,
             quantity: int = 1,
             account_id: Optional[str] = None,
@@ -527,7 +529,7 @@ class Wsimple:
             return self._send_order(
                 {
                     "security_id": security_id,
-                    "market_value": 1,
+                    "market_value": ref_price * quantity,
                     "quantity": quantity,
                     "order_type": "sell_quantity",
                     "order_sub_type": "market",

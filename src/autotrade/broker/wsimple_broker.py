@@ -90,8 +90,10 @@ class WSimpleBroker(BaseLiveBroker, IBroker, ILiveBroker):
             order.set_ticker_id(ticker_id=self._ticker_id)
             try:
                 resp = self.auth.market_buy_order(security_id=order.ticker_id,
+                                                  ref_price=order.ref_price,
                                                   quantity=order.size,
                                                   account_id=self._trading_account_id)
+                # print(resp)
 
                 order = self._write_order_resp(order, resp)
 
@@ -108,6 +110,7 @@ class WSimpleBroker(BaseLiveBroker, IBroker, ILiveBroker):
 
             try:
                 resp = self.auth.market_sell_order(security_id=order.ticker_id,
+                                                   ref_price=order.ref_price,
                                                    quantity=order.size,
                                                    account_id=self._trading_account_id)
 
@@ -408,23 +411,26 @@ if __name__ == '__main__':
     import time
 
     wsimple_broker = WSimpleBroker()
-    wsimple_broker.initialize(trading_symbol='CGX', currency='CAD')
+    wsimple_broker.initialize(trading_symbol='CTS', currency='CAD')
     wsimple_broker.set_trading_account(trading_account_id='tfsa-hyrnpbqo')
     print(wsimple_broker.ticker_id)
     print(wsimple_broker.position)
 
-    limit_buy_order = RegularOrder(isbuy=True, islimit=True, size=1, limit_price=10.05, trading_symbol='CGX')
+    market_buy_order = RegularOrder(isbuy=True, islimit=False, size=1, trading_symbol='CTS', ref_price=11.11, limit_price=11.11)
 
-    wsimple_broker.limit_buy(limit_buy_order)
-    time.sleep(3)
-    wsimple_broker.update_pending_orders()
-    print(wsimple_broker.pending_orders)
-    wsimple_broker.get_pending_orders()
-    print(wsimple_broker.pending_orders)
-    wsimple_broker.update_pending_orders()
-    print(wsimple_broker.pending_orders)
-    wsimple_broker.cancel_order(list(wsimple_broker.pending_orders.values())[0])
-    time.sleep(3)
-    wsimple_broker.update_pending_orders()
-    print(wsimple_broker.pending_orders)
-    print(wsimple_broker.settled_orders)
+    print(market_buy_order.ref_price)
+
+    order_info = wsimple_broker.market_buy(market_buy_order)
+    print(order_info)
+    # time.sleep(3)
+    # wsimple_broker.update_pending_orders()
+    # print(wsimple_broker.pending_orders)
+    # wsimple_broker.get_pending_orders()
+    # print(wsimple_broker.pending_orders)
+    # wsimple_broker.update_pending_orders()
+    # print(wsimple_broker.pending_orders)
+    # wsimple_broker.cancel_order(list(wsimple_broker.pending_orders.values())[0])
+    # time.sleep(3)
+    # wsimple_broker.update_pending_orders()
+    # print(wsimple_broker.pending_orders)
+    # print(wsimple_broker.settled_orders)

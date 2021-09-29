@@ -2,24 +2,30 @@
 
 from src.autotrade.artifacts.sizer import Sizer
 from src.autotrade.broker.back_broker import BackBroker
-from src.autotrade.strategy.rsi_strategy import RSICloudBollStrategy
+from src.autotrade.broker.wsimple_broker import WSimpleBroker
+from src.autotrade.strategy.rsi_mfi_strategy import RSIMFIStrategy
 from src.autotrade.trade import Trade
 
-ac_tradingbot = Trade(codename='AC.TO_20210804', is_live_trade=False, trading_symbol='AC', ticker_alias='AC.TO',
-                      currency='CAD', interval_option='5m', candle_count=500,
-                      exchange='TSX', reps=2)
+ac_tradingbot = Trade(codename='APXTSampleTrade', is_live_trade=False, trading_symbol='AAPL', ticker_alias='AAPL',
+                      currency='USD', interval_option='2m', candle_count=300,
+                      exchange='NYSE', reps=2, to_notify=('signal', 'order', 'trade'))
 
-barfeed = ac_tradingbot.barfeed
-# print(barfeed.latest_bar)
-# print(barfeed.last_valid_bar)
-# print(barfeed.bar_time_gap)
-# print(ac_tradingbot.bar_time_gap)
-# print(ac_tradingbot.interval)
+# ac_tradingbot = Trade(codename='APXTSampleTrade', is_live_trade=True, trading_symbol='CTS', ticker_alias='CTS.TO',
+#                       currency='CAD', interval_option='5m', candle_count=50,
+#                       exchange='TSX', reps=1)
+
+
 
 
 ac_tradingbot.set_broker(BackBroker())
-ac_tradingbot.set_sizer(Sizer(isbysize=True, size=100))
-ac_tradingbot.set_strategy(RSICloudBollStrategy())
+
+# wsimple_broker = WSimpleBroker()
+# wsimple_broker.set_trading_account()
+# ac_tradingbot.set_broker(wsimple_broker)
+
+ac_tradingbot.set_sizer(Sizer(isbysize=True, size=1))
+# ac_tradingbot.set_strategy(RSIMFIStrategy())
+ac_tradingbot.set_strategy(RSIMFIStrategy())
 ac_tradingbot.set_stp_pricer()
 ac_tradingbot.execute()
 

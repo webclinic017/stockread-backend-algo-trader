@@ -4,6 +4,9 @@ import pytz
 
 
 # Create a Stratey
+from src.datafeed.yahoofinance.yf_single import PYahooFinance
+
+
 class TestStrategy(bt.Strategy):
     params = (
         ('printlog', True),  # Stop printing the log of the trading strategy
@@ -73,9 +76,9 @@ class TestStrategy(bt.Strategy):
 
 
 if __name__ == '__main__':
-    test_df.drop('timestamp', axis=1, inplace=True)
-    test_df.set_index('datetime', inplace=True)
-    print(test_df)
+    candle_retriever = PYahooFinance(ticker_symbol='AC.TO', interval_option='5m')
+    dataframe = candle_retriever.get_x_candles(candle_count=100)
+    print(dataframe)
 
     cerebro = bt.Cerebro()
     # Add a strategy
@@ -83,7 +86,7 @@ if __name__ == '__main__':
 
     # Create a Data Feed
     data = bt.feeds.PandasData(
-        dataname=test_df,
+        dataname=dataframe,
         name='SHOP.TO', tz=pytz.timezone('America/Montreal'))
 
     # Add the Data Feed to Cerebro

@@ -16,7 +16,7 @@ from src.errors import OrderTypeError, MissingPrice, UnmatchedTickerError, Missi
 
 class BackBroker(BaseBroker, IBroker):
 
-    def __init__(self, ask_bid_spread_floor: float = 0.0022, ask_bid_spread_ceiling: float = 0.0062,
+    def __init__(self, ask_bid_spread_floor: float = 0.0010, ask_bid_spread_ceiling: float = 0.0020,
                  lmt_fill_possibility: float = 0.85, slo_fill_possibility: float = 0.95,
                  comm: Commission = Commission()):
 

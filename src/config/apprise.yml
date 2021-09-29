@@ -7,7 +7,9 @@ version: 1
 # For example a telegram URL would look like:
 # - tgram://123456789:AABx8iXjE5C-vG4SDhf6ARgdFgxYxhuHb4A/-606743502
 urls:
-   - tgram://1677166991:AAEkQ6-UYBrfjLprr3PG0fH3vRqOY07Bv1Q/1754262232
-   - discord://859610104777539604/fSSmFTheKog173x6QN5y3A4Tsuoric_wQfy6V2W4x6L5subedaWeHuhj9_IwIIzzKr-i
+   - tgram://1677166991:AAEkQ6-UYBrfjLprr3PG0fH3vRqOY07Bv1Q/1754262232:
+      - tag: signal
+   - discord://859610104777539604/fSSmFTheKog173x6QN5y3A4Tsuoric_wQfy6V2W4x6L5subedaWeHuhj9_IwIIzzKr-i:
+      - tag: order, trade
   # - slack://tokenA/tokenB/tokenC
   # More options here: https://github.com/caronc/apprise

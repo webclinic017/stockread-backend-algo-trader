@@ -33,8 +33,10 @@ class QuesTradeAPI(metaclass=SingletonMeta):
         self._access_token = None if self.is_access_expired else self._questrade_tokens['access_token']
         self._api_server = None if self.is_access_expired else self._questrade_tokens['api_server']
 
-        if not self.is_refresh_token_expired:
+        if self.is_refresh_token_expired:
             self._request_access_token()
+
+
 
         self._data_request_headers = {
             'Authorization': 'Bearer {}'.format(self._access_token)
@@ -130,6 +132,7 @@ class QuesTradeAPI(metaclass=SingletonMeta):
                     response = requests.post(url=self.token_url, params=params)
                     resp_text = response.text
                     json_response = response.json()
+                    print(json_response)
                 except Exception as err:
                     raise Exception(f'{resp_text}: the refresh token might have expired. Error details: {err}')
 
@@ -158,5 +161,5 @@ class QuesTradeAPI(metaclass=SingletonMeta):
 if __name__ == '__main__':
     questrade_api = QuesTradeAPI()
     print(questrade_api)
-    quotes = questrade_api.get_quotes('SHOP.TO')
+    quotes = questrade_api.get_quotes('CTS.TO')
     print(quotes)
